@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: Handle catched error
+# key: hdlerr
+# --
+ErrorUtil.handleCatched(${1:this.props}, ${2:error}${3:,${4: false}});

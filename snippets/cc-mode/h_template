@@ -1,0 +1,15 @@
+# -*- mode: snippet -*-
+# name: Create header file template
+# key: h_template
+# --
+/*!
+* \\file      $1.h
+* \\author    Loic Lemaitre
+* \\date      2007-2014
+* \\copyright COMPUSURGE
+*/
+
+//******************************************************************************
+#pragma once
+
+//******************************************************************************

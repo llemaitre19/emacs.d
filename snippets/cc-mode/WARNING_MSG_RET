@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: WARNING_MSG_RET macro
+# key: WARNING_MSG_RET
+# --
+WARNING_MSG_RET("$1", ${2:false});

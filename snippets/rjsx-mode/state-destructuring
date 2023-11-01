@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: State destructuring
+# key: sttdst
+# --
+const { $1 } = this.state;

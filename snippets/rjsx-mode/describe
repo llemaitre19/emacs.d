@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: describe
+# key: des
+# --
+describe('$1', () => { $2 });

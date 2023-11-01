@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: ERROR_MSG_RET macro
+# key: ERROR_MSG_RET
+# --
+ERROR_MSG_RET("$1", ${2:false});

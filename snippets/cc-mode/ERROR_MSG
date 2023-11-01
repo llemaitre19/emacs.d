@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: ERROR_MSG macro
+# key: ERROR_MSG
+# --
+ERROR_MSG("$1");

@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: select
+# key: sel
+# --
+select ${1:*} from ${2:doqboard_}$3;

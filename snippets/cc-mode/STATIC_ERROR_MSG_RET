@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: STATIC_ERROR_MSG_RET macro
+# key: STATIC_ERROR_MSG_RET
+# --
+STATIC_ERROR_MSG_RET("$1", "$2", ${3:false});

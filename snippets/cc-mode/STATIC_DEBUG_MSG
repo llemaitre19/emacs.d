@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: STATIC_DEBUG_MSG macro
+# key: STATIC_DEBUG_MSG
+# --
+STATIC_DEBUG_MSG("$1", "$2", DBG_LEVEL_$3);

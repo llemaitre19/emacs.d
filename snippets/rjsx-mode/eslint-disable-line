@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: eslint-disable-line
+# key: edl
+# --
+// eslint-disable-${1:$$(yas-choose-value '("line" "next-line"))} ${2:$$(yas-choose-value '("no-undef" "no-unused-vars" "no-param-reassign" "no-unreachable" "no-constant-condition" "react/no-unused-prop-types" "import/prefer-default-export" "react/prefer-stateless-function" "new-cap" "jsx-a11y/no-autofocus"))}

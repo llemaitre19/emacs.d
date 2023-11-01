@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: cprofile
+# key: cprof
+# --
+python -m cProfile -o ${1:sample.profile} $2

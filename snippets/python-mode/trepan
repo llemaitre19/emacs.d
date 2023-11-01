@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: trepan
+# key: trepan
+# --
+from trepan.api import debug
+debug()

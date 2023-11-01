@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: STATIC_ERROR_MSG macro
+# key: STATIC_ERROR_MSG
+# --
+STATIC_ERROR_MSG("$1", "$2");

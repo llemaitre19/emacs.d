@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: defaultprops
+# key: dftprp
+# --
+$1.defaultProps = {
+  $2: $3,
+};

@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: DEBUG_MSG macro
+# key: DEBUG_MSG
+# --
+DEBUG_MSG("$1", DBG_LEVEL_$2);

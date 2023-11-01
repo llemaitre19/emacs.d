@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: Flake 8 disable line
+# key: fdl
+# --
+# noqa: E$1

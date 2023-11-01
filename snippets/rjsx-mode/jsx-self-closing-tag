@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: jsx-self-closing-tag
+# key: st
+# --
+<$1${2:} />

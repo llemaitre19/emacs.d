@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: @returns
+# key: @ret
+# --
+${1:* }@returns {${2:any}}${3: $4}
