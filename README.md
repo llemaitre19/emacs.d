@@ -18,7 +18,7 @@ Extends mainly the Emacs default support for these 2 languages :
 
 * [Flycheck](https://github.com/flycheck/flycheck): syntax checker
 
-* [Rjsx](https://github.com/felipeochoa/rjsx-mode): enhanced JSX syntax
+* [Jtsx](https://github.com/llemaitre19/jtsx): extends Emacs JSX/TSX built-in support
 
 * [RealGUD](https://github.com/realgud/realgud): interface for external debuggers
 
