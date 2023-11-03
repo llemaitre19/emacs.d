@@ -26,7 +26,7 @@
 (defvar js2-mode-show-parse-errors)
 (defvar js2-mode-show-strict-warnings)
 (defvar work-path)
-(defvar eslint-bin)
+(defvar eslint-bin "eslint_d") ;; npm install -g eslint_d
 (defvar jest-bin)
 (defvar django-tests-dir-name "tests")
 (defvar project-type)
@@ -58,7 +58,6 @@
   ;; Projectile doesn't care about find-program configuration, so this
   ;; is usefull on Windows
   (defvar projectile-generic-command (concat find-program ". -type f -print0"))
-  (defvar eslint-bin "node_modules/.bin/eslint.cmd")
   (defvar jest-bin "node_modules/.bin/jest.cmd")
   (defvar work-path "F:/Travail")
   (defvar postgresql-user "postgres")
@@ -75,7 +74,6 @@
 (when (eq system-type 'darwin)
   ;; (load "osx_gud.el")
   (setq exec-path (append '("/usr/local/bin") exec-path))
-  (defvar eslint-bin "node_modules/eslint/bin/eslint.js")
   (defvar jest-bin "node_modules/jest/bin/jest.js")
   (defvar work-path "~/Travail")
   (defvar postgresql-user "llemaitre")
@@ -94,7 +92,6 @@
 ;;--------------------------------------------------------------------------------------------------
 (when (eq system-type 'gnu/linux)
   (setq exec-path (append '("/usr/share/virtualenvwrapper") exec-path))
-  (defvar eslint-bin "node_modules/eslint/bin/eslint.js")
   (defvar work-path "/home/loic/Travail")
   (defvar jest-bin "node_modules/jest/bin/jest.js")
   (defvar postgresql-user "postgres")
@@ -385,12 +382,11 @@
   (defun eslint-fix-file ()
     "Eslint fix current buffer file."
     (interactive)
-    (let ((eslint (concat (projectile-project-root) eslint-bin))
-          (options (list "--fix" buffer-file-name)))
+    (let ((options (list "--fix" buffer-file-name)))
       (let ((inhibit-message t))
-        (message (concat eslint " " (string-join options " "))))
+        (message (concat eslint-bin " " (string-join options " "))))
       (message "eslint --fixing the file `%s'" buffer-file-name)
-      (apply #'call-process eslint nil "*ESLint Errors*" nil options)
+      (apply #'call-process eslint-bin nil "*ESLint Errors*" nil options)
       (message "done")))
 
   (defun eslint-fix-file-and-revert ()
@@ -403,13 +399,12 @@
   (defun eslint-fix-all-files ()
     "Eslint fix all files."
     (interactive)
-    (let ((eslint (concat (projectile-project-root) eslint-bin))
-          (options (list (concat (projectile-project-root) "src/**/*.js")
+    (let ((options (list (concat (projectile-project-root) "src/**/*.js")
                          (concat (projectile-project-root) "src/**/*.jsx") "--fix")))
       (let ((inhibit-message t))
-        (message (concat eslint " " (string-join options " "))))
+        (message (concat eslint-bin " " (string-join options " "))))
       (message "eslint --fixing all project files")
-      (apply #'call-process eslint nil "*ESLint Errors*" nil options)
+      (apply #'call-process eslint-bin nil "*ESLint Errors*" nil options)
       (message "done"))))
 
 ;;--------------------------------------------------------------------------------------------------
@@ -610,8 +605,9 @@
   (setq flycheck-python-flake8-executable "python3")
   ;; (setq flycheck-check-syntax-automatically '(save mode-enabled))
   (setq-default flycheck-emacs-lisp-load-path 'inherit)
+  (setq flycheck-javascript-eslint-executable eslint-bin)
+  (setq flycheck-eslint-args "--cache")
 
-  (add-hook 'flycheck-mode-hook #'use-eslint-from-node-modules)
   (add-hook 'flycheck-mode-hook #'add-gatsby-custom-eslint-rules)
   (global-flycheck-mode)
 
@@ -620,12 +616,6 @@
 
   (defun find-nodejs-project-root()
     (locate-dominating-file (or (buffer-file-name) default-directory) "node_modules"))
-
-  (defun use-eslint-from-node-modules ()
-    (let* ((root (find-nodejs-project-root))
-           (eslint (and root (expand-file-name eslint-bin root))))
-      (when (and eslint (file-exists-p eslint))
-        (setq-local flycheck-javascript-eslint-executable eslint))))
 
   (defun add-gatsby-custom-eslint-rules()
     (let* ((root (find-nodejs-project-root))
