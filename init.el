@@ -1332,7 +1332,7 @@
       (propertize venv-current-name 'help-echo "Python virtual environement")))
 
   (telephone-line-defsegment line-segment ()
-    (concat "%4l/" (format "%d" (count-lines (point-min) (point-max)))))
+    (concat "%4l/" (format "%d" (+ (count-lines (point-min) (point-max)) 1))))
 
   (telephone-line-defsegment vc-segment ()
     (when-let ((vc-seg-content (telephone-line-raw vc-mode t)))
