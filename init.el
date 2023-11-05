@@ -1200,7 +1200,6 @@
 ;; ORG
 ;;--------------------------------------------------------------------------------------------------
 (use-package org
-  :ensure t
   :bind (("C-c o w" . open-current-work-notes)
          ("C-c o W" . open-previous-work-notes)
          ("C-c o r" . open-current-time-report)
