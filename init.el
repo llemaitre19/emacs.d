@@ -1224,6 +1224,8 @@
               open-previous-work-file
               get-clients-prompt-with-completion
               get-client-time-report-path)
+  :custom
+  (org-support-shift-select t)
   :config
   ;; (setq org-startup-indented t)
   (setq org-log-done 'time)
