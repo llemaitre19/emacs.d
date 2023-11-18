@@ -231,7 +231,9 @@
   ;; C/C++ -> clangd : sudo apt install clangd
   ;; Python -> pyright: pip install pyright
   (setq-default eglot-workspace-configuration
-                `((:pyright . (:typeCheckingMode "off"))))
+                `((:pyright . (:typeCheckingMode "off"))
+                  (:typescript-language-server . (:quotePreference
+                                                  "double"))))
   (setq eglot-events-buffer-size 0) ;; No buffer events
   (defun start-flycheck-eglot ()
     (let ((modes-using-flycheck-eglot (list 'python-ts-mode)))
