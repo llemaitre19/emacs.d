@@ -6,7 +6,7 @@
 ;; Maintainer: Loïc Lemaître <loic.lemaitre@gmail.com>
 ;; URL: https://github.com/llemaitre19/jtsx
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Keywords: languages
 ;; License: GNU General Public License 3
 
@@ -29,15 +29,19 @@
 (require 'newcomment)
 (require 'hideshow)
 
-(defun jtsx-treesit-ready-p (orig-func &rest args)
-  "Advice ORIG-FUNC to make it quiet.
+(eval-and-compile
+  ;; HACK
+  ;; Prevent language warnings when loading `typescript-ts-mode` (when Tree-sitter
+  ;; typescript and tsx languages are not installed yet).
+  ;; Temporary advice `treesit-ready-p' function to make it quiet.
+  (defun jtsx-treesit-ready-p (orig-func &rest args)
+    "Advice ORIG-FUNC to make it quiet.
 First element of ARGS and t are the new arguments."
   (apply orig-func (list (car args) t)))
 
-;; Prevent language warning when loading `typescript-ts-mode`.
-(advice-add 'treesit-ready-p :around #'jtsx-treesit-ready-p)
-(require 'typescript-ts-mode)
-(advice-remove 'treesit-ready-p #'jtsx-treesit-ready-p)
+  (advice-add 'treesit-ready-p :around #'jtsx-treesit-ready-p)
+  (require 'typescript-ts-mode)
+  (advice-remove 'treesit-ready-p #'jtsx-treesit-ready-p))
 
 (defgroup jtsx nil
   "Extends default treesit support for JSX/TSX."
@@ -71,6 +75,14 @@ continuated expression."
   :safe 'booleanp
   :group 'jtsx)
 
+(defcustom jtsx-enable-all-syntax-highlighting-features t
+  "Enable all available syntax highlighting features.
+If nil, default level defined by the underlying major mode is used.
+See `treesit-font-lock-level' for more informations."
+  :type 'boolean
+  :safe 'booleanp
+  :group 'jtsx)
+
 (defconst jtsx-jsx-ts-root-keys '("jsx_element"
                                   "jsx_self_closing_element"
                                   "jsx_expression"
@@ -82,7 +94,7 @@ continuated expression."
 
 (defvar jtsx-ts-indent-rules)
 
-(defun jtsx-node-in-jsx-context (node)
+(defun jtsx-node-jsx-context-p (node)
   "Check if NODE inside JSX context."
   (member (treesit-node-type node) '("jsx_expression"
                                      "jsx_element"
@@ -93,27 +105,27 @@ continuated expression."
                                      "jsx_closing_element"
                                      "jsx_namespace_name")))
 
-(defun jtsx-jsx-context-at (position)
+(defun jtsx-jsx-context-at-p (position)
   "Check if inside JSX context at POSITION."
   (save-excursion
-    (let ((pred (lambda (n) (jtsx-node-in-jsx-context n))))
+    (let ((pred (lambda (n) (jtsx-node-jsx-context-p n))))
       (treesit-parent-until (treesit-node-at position) pred t))))
 
-(defun jtsx-jsx-context ()
+(defun jtsx-jsx-context-p ()
   "Check if in JSX context at point or at region ends."
-  (and (jtsx-jsx-context-at (point)) (or (not (region-active-p)) (jtsx-jsx-context-at (mark)))))
+  (and (jtsx-jsx-context-at-p (point)) (or (not (region-active-p)) (jtsx-jsx-context-at-p (mark)))))
 
-(defun jtsx-jsx-attribute-context-at (position)
+(defun jtsx-jsx-attribute-context-at-p (position)
   "Check if insinde a JSX element attribute at POSITION."
   (when-let ((node (treesit-node-at position)))
     (jtsx-enclosing-jsx-node node '("jsx_attribute"))))
 
-(defun jtsx-jsx-attribute-context ()
+(defun jtsx-jsx-attribute-context-p ()
   "Check if in JSX element attribute context at point or at region ends."
-  (let ((jsx-attr-at-point (jtsx-jsx-attribute-context-at (point))))
+  (let ((jsx-attr-at-point (jtsx-jsx-attribute-context-at-p (point))))
     (if (not (region-active-p))
         jsx-attr-at-point
-      (let ((jsx-attr-at-mark (jtsx-jsx-attribute-context-at (mark)))
+      (let ((jsx-attr-at-mark (jtsx-jsx-attribute-context-at-p (mark)))
             (is-closing-tag (lambda (pos) (equal (treesit-node-type (treesit-node-at pos)) ">"))))
         (cond ((and jsx-attr-at-point jsx-attr-at-mark) t)
               ((and (not jsx-attr-at-point) (not jsx-attr-at-mark)) nil)
@@ -146,21 +158,26 @@ See `comment-dwim' documentation for ARG usage."
   "Add support for commenting/uncommenting inside JSX.
 See `comment-dwim' documentation for ARG usage."
   (interactive "*P")
-  (if (jtsx-jsx-context)
-      (if (jtsx-jsx-attribute-context)
+  (if (jtsx-jsx-context-p)
+      (if (jtsx-jsx-attribute-context-p)
           (jtsx-comment-jsx-attribute-dwim arg)
         (jtsx-comment-jsx-dwim arg))
     (comment-dwim arg)))
 
-(defun jtsx-enclosing-jsx-node (node types &optional fallback-types include-node)
+(defun jtsx-enclosing-jsx-node (node types &optional fallback-types include-node jsx-exp-guard)
   "Get first parent of NODE matching one of TYPES.
 If the research failed and FALLBACK-TYPES are not nil retry with FALLBACK-TYPES.
-If INCLUDE-NODE is not nil, NODE is included in the research."
-  (let ((enclosing-node (let ((pred (lambda (n) (member (treesit-node-type n) types))))
-                          (treesit-parent-until node pred include-node))))
+If INCLUDE-NODE is not nil, NODE is included in the research.
+If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
+  (let ((enclosing-node (if include-node node (treesit-node-parent node))))
+    (while (and enclosing-node (not (member (treesit-node-type enclosing-node) types)))
+      (setq enclosing-node (if (and jsx-exp-guard
+                                    (equal (treesit-node-type enclosing-node) "jsx_expression"))
+                               nil ; give up the research
+                             (treesit-node-parent enclosing-node))))
     (if (or enclosing-node (not fallback-types))
         enclosing-node
-      (jtsx-enclosing-jsx-node node fallback-types nil include-node))))
+      (jtsx-enclosing-jsx-node node fallback-types nil include-node jsx-exp-guard))))
 
 (defun jtsx-enclosing-jsx-element (node)
   "Get first parent of NODE matching `jsx_element' type."
@@ -175,7 +192,7 @@ If INCLUDE-NODE is not nil, NODE is included in the research."
   (interactive)
   (let ((enclosing-element (jtsx-enclosing-jsx-element-at-point)))
     (if enclosing-element
-        (goto-char (+ (treesit-node-start enclosing-element) 1)) ;; +1 to jump right after the "<"
+        (goto-char (1+ (treesit-node-start enclosing-element))) ; +1 to jump right after the "<"
       (message "No JSX opening element found."))))
 
 (defun jtsx-jump-jsx-closing-tag ()
@@ -183,7 +200,7 @@ If INCLUDE-NODE is not nil, NODE is included in the research."
   (interactive)
   (let ((enclosing-element (jtsx-enclosing-jsx-element-at-point)))
     (if enclosing-element
-        (goto-char (- (treesit-node-end enclosing-element) 1)) ;; -1 to jump right before the "/>"
+        (goto-char (1- (treesit-node-end enclosing-element))) ; -1 to jump right before the "/>"
       (message "No JSX closing element found."))))
 
 (defun jtsx-jump-jsx-element-tag-dwim ()
@@ -194,8 +211,8 @@ If INCLUDE-NODE is not nil, NODE is included in the research."
         (let ((start (treesit-node-start enclosing-element))
               (end (treesit-node-end enclosing-element)))
           (if (> (point) (+ start (/ (- end start) 2)))
-              (jtsx-jump-jsx-opening-tag) ;; We are closer to the closing tag.
-            (jtsx-jump-jsx-closing-tag))) ;; We are closer to the opening tag.
+              (jtsx-jump-jsx-opening-tag) ; We are closer to the closing tag.
+            (jtsx-jump-jsx-closing-tag))) ; We are closer to the opening tag.
       (message "No JSX element found."))))
 
 (defun jtsx-rename-jsx-identifier (node new-name)
@@ -214,11 +231,11 @@ If INCLUDE-NODE is not nil, NODE is included in the research."
   (let ((node-end (treesit-node-end node)))
     (cl-assert node-end nil "Unable to retrieve end of node.")
     (save-excursion
-      (goto-char (- node-end 1)) ;; -1 to be inside <> or </>
+      (goto-char (1- node-end)) ; -1 to be inside <> or </>
       (insert new-name)
       (point))))
 
-(defun jtsx-jsx-fragment (node)
+(defun jtsx-jsx-fragment-p (node)
   "Check if NODE is a JSX fragment."
   (and (member (treesit-node-type node) jtsx-jsx-ts-element-tag-keys)
        ;; JSX Fragment tags only have 2 children : "<" (or "</") and ">".
@@ -239,7 +256,7 @@ CHILD-FIELD-NAME identify the tag to rename (`open_tag' or `close_tag')."
          (element-node (jtsx-enclosing-jsx-element node)))
     (cl-assert element-node nil "Unable to retrieve the enclosing jsx_element node.")
     (let* ((tag-node (treesit-node-child-by-field-name element-node child-field-name))
-           (fragment (jtsx-jsx-fragment tag-node))
+           (fragment (jtsx-jsx-fragment-p tag-node))
            (node-to-rename (if fragment tag-node
                              ;; Get identifier node
                              (treesit-node-child-by-field-name tag-node "name"))))
@@ -304,9 +321,14 @@ Return a plist containing the move information : `:node-start', `:node-end',
                                                  (pos-eol))
                                                 jtsx-jsx-ts-element-tag-keys
                                                 jtsx-jsx-ts-root-keys
-                                                t))
+                                                t
+                                                t)) ; Do not traverse jsx expression
          (current-node-type (treesit-node-type current-node))
-         (enclosing-node (jtsx-enclosing-jsx-node current-node jtsx-jsx-ts-root-keys nil t))
+         (enclosing-node (jtsx-enclosing-jsx-node current-node
+                                                  jtsx-jsx-ts-root-keys
+                                                  nil
+                                                  t
+                                                  t)) ; Do not traverse jsx expression
          (moving-opening-or-closing-tag (and (not full-element-move)
                                              (member current-node-type
                                                      jtsx-jsx-ts-element-tag-keys)))
@@ -345,10 +367,11 @@ Return a plist containing the move information : `:node-start', `:node-end',
                  ;; Try to step out
                  ((and (not node-candidate) jtsx-jsx-element-move-allow-step-out)
                   (let* ((parent-node
-                          (jtsx-enclosing-jsx-node enclosing-node jtsx-jsx-ts-root-keys))
+                          ;; Step out target can only be a JSX element
+                          (jtsx-enclosing-jsx-node enclosing-node '("jsx_element") nil nil t))
                          (grand-parent-node (treesit-node-parent parent-node)))
                     ;; Ensure not to go out of JSX context
-                    (when (jtsx-node-in-jsx-context grand-parent-node)
+                    (when (jtsx-node-jsx-context-p grand-parent-node)
                       parent-node)))
                  (t node-candidate))))
       (let ((node-start (treesit-node-start node))
@@ -356,7 +379,7 @@ Return a plist containing the move information : `:node-start', `:node-end',
             (line (if backward
                       (line-number-at-pos (treesit-node-start node-final-candidate))
                     ;; +1 for insertion
-                    (+ (line-number-at-pos (treesit-node-end node-final-candidate)) 1))))
+                    (1+ (line-number-at-pos (treesit-node-end node-final-candidate))))))
         (cl-assert (and node-start node-end line) nil
                    "Unable to retrieve line, node start or node end.")
         (list :node-start node-start :node-end node-end :line line)))))
@@ -364,7 +387,7 @@ Return a plist containing the move information : `:node-start', `:node-end',
 (defun jtsx-goto-line (line)
   "Go to the beginning of LINE."
   (goto-char (point-min))
-  (forward-line (- line 1)))
+  (forward-line (1- line)))
 
 (defun jtsx-move-jsx-element (full-element-move backward &optional allow-step-in)
   "Move a JSX element (or any JSX root node).
@@ -373,7 +396,7 @@ If FULL-ELEMENT-MOVE is nil, consider moving only the element tag at point.
 If BACKWARD is not nil, search for valid move before point, else after point.
 If ALLOW-STEP-IN is not nil, a move can go deeper in the JSX hierarchy.  Only
 used if FULL-ELEMENT-MOVE is t."
-  (if (jtsx-jsx-context)
+  (if (jtsx-jsx-context-p)
       (if-let ((res (jtsx-find-jsx-element-valid-move full-element-move backward
                                                       allow-step-in)))
           (let* ((node-start (plist-get res :node-start))
@@ -393,7 +416,7 @@ used if FULL-ELEMENT-MOVE is t."
             (indent-region (save-excursion (when (not backward) (jtsx-goto-line prev-line))
                                            (pos-bol))
                            (save-excursion (when backward (jtsx-goto-line prev-line))
-                                           (forward-line (- lines-count 1))(pos-eol))))
+                                           (forward-line (- lines-count 1)) (pos-eol))))
         (message "No move in this direction."))
     (message "Not inside jsx context.")))
 
@@ -429,7 +452,7 @@ Step into sibling elements if possible."
   (interactive)
   (jtsx-move-jsx-element t t t))
 
-(defun jtsx-treesit-check-for-syntax-error ()
+(defun jtsx-treesit-syntax-error-p ()
   "Check if there are errors reported by treesit."
   (jtsx-enclosing-jsx-node (treesit-node-at (point)) '("ERROR")))
 
@@ -439,8 +462,8 @@ N is a numeric prefix argument.  If greater than 1, insert N times `>', but
  never insert closing tag."
   (interactive "p")
   (insert-char (char-from-name "GREATER-THAN SIGN") n t)
-  (when (and (= n 1) jtsx-enable-jsx-electric-closing-element (jtsx-jsx-context))
-    (when-let ((node (treesit-node-at (- (point) 1)))) ;; Safer to get node inside the tag
+  (when (and (= n 1) jtsx-enable-jsx-electric-closing-element (jtsx-jsx-context-p))
+    (when-let ((node (treesit-node-at (1- (point))))) ; Safer to get node inside the tag
       (when-let ((parent-node (treesit-node-parent node)))
         (when (and (equal (treesit-node-type node) ">")
                    (equal (treesit-node-type parent-node) "jsx_opening_element"))
@@ -455,7 +478,7 @@ N is a numeric prefix argument.  If greater than 1, insert N times `>', but
             ;; the new opening tag we detect a syntax issue, that means a closing tag is expected.
             ;; This logic is quite basic, but no sure we can really do better with treesit
             ;; informations about syntax issues.
-            (when (jtsx-treesit-check-for-syntax-error)
+            (when (jtsx-treesit-syntax-error-p)
               (save-excursion (insert closing-tag)))))))))
 
 (defun jtsx-trimmed-region ()
@@ -482,7 +505,7 @@ Nodes are selected by a region if there is an active one.  Else the node at
  point is used.
 ELEMENT-NAME is the name of the new wrapping element."
   (interactive "sJSX element name: ")
-  (if (jtsx-jsx-context)
+  (if (jtsx-jsx-context-p)
       (let* ((start-pos (if (region-active-p) (plist-get (jtsx-trimmed-region) :start) (point)))
              (end-pos (if (region-active-p) (plist-get (jtsx-trimmed-region) :end) (point)))
              (element-start (jtsx-enclosing-jsx-node (treesit-node-at start-pos)
@@ -493,7 +516,7 @@ ELEMENT-NAME is the name of the new wrapping element."
                             element-start)))
         (cl-assert (and element-start element-end) "Not able to retrieve node start or node end.")
         (let ((opening-line (line-number-at-pos (treesit-node-start element-start)))
-              (closing-line (+ (line-number-at-pos (treesit-node-end element-end)) 1)) ;; +1 for
+              (closing-line (1+ (line-number-at-pos (treesit-node-end element-end)))) ; +1 for
               ;; insertion
               (opening-tag (format "<%s>\n" element-name))
               (closing-tag (format "</%s>\n" element-name)))
@@ -503,35 +526,35 @@ ELEMENT-NAME is the name of the new wrapping element."
             (jtsx-goto-line opening-line)
             (insert opening-tag))
           (indent-region (save-excursion (jtsx-goto-line opening-line) (pos-bol))
-                         (save-excursion (jtsx-goto-line (+ closing-line 1)) (pos-eol))) ;; + 1
+                         (save-excursion (jtsx-goto-line (1+ closing-line)) (pos-eol))) ; + 1
           ;; because of the opening tag insertion
           (jtsx-goto-line opening-line)
           (search-forward ">")
-          (backward-char 1))) ;; Let the cursor ready to add attributes
+          (backward-char 1))) ; Let the cursor ready to add attributes
     (message "Not inside jsx context.")))
 
 (defun jtsx-hs-forward-sexp (n)
   "Make `forward-sexp' compatible with Hideshow in JSX.
 See `forward-sexp' documentation for informations about N argument."
   (interactive "p")
-  (if (and (jtsx-jsx-context))
-      (when-let* ((node (treesit-node-at (point)))
-                  (enclosing-node (jtsx-enclosing-jsx-node node jtsx-jsx-hs-root-keys))
-                  (end-pos (treesit-node-end enclosing-node)))
-        (goto-char end-pos))
+  (unless (and (jtsx-jsx-context-p)
+               (when-let* ((node (treesit-node-at (point)))
+                           (enclosing-node (jtsx-enclosing-jsx-node node jtsx-jsx-hs-root-keys))
+                           (end-pos (treesit-node-end enclosing-node)))
+                 (goto-char end-pos)))
     ;; Starting Emacs 30, treesit set its own function, which has some issues.
-    ;; Use the default one.
-    ;; TODO: qualify the bug and report it if necessary
+    ;; Bug report: https://debbugs.gnu.org/cgi/bugreport.cgi?bug=66988
+    ;; Use the default one instead.
     (let ((forward-sexp-function nil))
       (forward-sexp n))))
 
 (defun jtsx-hs-find-block-beginning ()
   "Enhance `hs-find-block-beginning' for JSX."
-  (if (and (jtsx-jsx-context))
-      (when-let* ((node (treesit-node-at (point)))
-                  (enclosing-node (jtsx-enclosing-jsx-node node jtsx-jsx-hs-root-keys))
-                  (start-pos (treesit-node-start enclosing-node)))
-        (goto-char start-pos))
+  (unless (and (jtsx-jsx-context-p)
+               (when-let* ((node (treesit-node-at (point)))
+                           (enclosing-node (jtsx-enclosing-jsx-node node jtsx-jsx-hs-root-keys))
+                           (start-pos (treesit-node-start enclosing-node)))
+                 (goto-char start-pos)))
     (hs-find-block-beginning)))
 
 (defmacro jtsx-ts-indent-rules-for-key (ts-lang-key)
@@ -590,6 +613,12 @@ MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
     (jtsx-ts-remove-indent-rule ts-lang-key
                                 `((node-is "statement_block") parent-bol ,indent-var-name)))
   (setq-local treesit-simple-indent-rules jtsx-ts-indent-rules)
+
+  ;; Use maximum level of syntax highlighting if enabled
+  (when jtsx-enable-all-syntax-highlighting-features
+    (setq-local treesit-font-lock-level 4))
+
+  ;; Apply treesit customization
   (treesit-major-mode-setup))
 
 (defun jtsx-prioritize-mode-if-present (mode)
@@ -612,10 +641,10 @@ MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
 ;;;###autoload
 (define-derived-mode jsx-mode js-ts-mode "JSX"
   "Major mode extending `js-ts-mode'."
-  :group 'jsx-mode
+  :group 'jtsx
   (let ((ts-lang-key 'javascript))
     (when (treesit-ready-p ts-lang-key)
-      (jtsx-prioritize-mode-if-present 'jsx-mode) ;; js-ts-mode mode sets auto-mode-alist when loaded
+      (jtsx-prioritize-mode-if-present 'jsx-mode) ; js-ts-mode mode sets auto-mode-alist when loaded
       ;; Do a deep copy of javascript indent rules variable, to prevent side effects as we will
       ;; modify it.
       (setq-local jtsx-ts-indent-rules
@@ -631,7 +660,7 @@ MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
 ;;;###autoload
 (define-derived-mode tsx-mode tsx-ts-mode "TSX"
   "Major mode extending `tsx-ts-mode'."
-  :group 'tsx-mode
+  :group 'jtsx
   (let ((ts-lang-key 'tsx))
     (when (treesit-ready-p ts-lang-key)
       (setq-local jtsx-ts-indent-rules (typescript-ts-mode--indent-rules 'tsx))
@@ -646,7 +675,8 @@ MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
 TS-LANG-KEY is the language to be installed."
   ;; Known bug : calling `treesit-install-language-grammar' multiple times for the same language
   ;; seems buggy.
-  ;; TODO: qualify the bug and report it if necessary
+  ;; Fixed by commit 1098c114b74 in emacs 30.0.50
+  ;; (bug https://debbugs.gnu.org/cgi/bugreport.cgi?bug=66673)
   (interactive (list (intern (completing-read "Language: " '(javascript tsx)))))
   (unless (alist-get ts-lang-key treesit-language-source-alist)
     (let ((source (pcase ts-lang-key
