@@ -414,6 +414,12 @@
       (message "done"))))
 
 ;;--------------------------------------------------------------------------------------------------
+;; CSS
+;;--------------------------------------------------------------------------------------------------
+(use-package css-mode
+  :mode (("\\.css\\'" . css-ts-mode)))
+
+;;--------------------------------------------------------------------------------------------------
 ;; WEB-MODE
 ;;--------------------------------------------------------------------------------------------------
 (use-package web-mode
@@ -504,7 +510,8 @@
           (typescript "https://github.com/tree-sitter/tree-sitter-typescript"
                       "master" "typescript/src")
           (c "https://github.com/tree-sitter/tree-sitter-c.git")
-          (cpp "https://github.com/tree-sitter/tree-sitter-cpp.git"))))
+          (cpp "https://github.com/tree-sitter/tree-sitter-cpp.git")
+          (css "https://github.com/tree-sitter/tree-sitter-css.git"))))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; RESTCLIENT
