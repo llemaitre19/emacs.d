@@ -230,10 +230,12 @@
   ;; Javascript/Typescript -> ts server: npm install -g typescript-language-server
   ;; C/C++ -> clangd : sudo apt install clangd
   ;; Python -> pyright: pip install pyright
+  (add-to-list 'eglot-server-programs
+               '((js-base-mode typescript-ts-base-mode)
+                 . ("typescript-language-server" "--stdio"
+                    :initializationOptions (:preferences (:jsxAttributeCompletionStyle "none")))))
   (setq-default eglot-workspace-configuration
-                `((:pyright . (:typeCheckingMode "off"))
-                  (:typescript-language-server . (:quotePreference
-                                                  "double"))))
+                `((:pyright . (:typeCheckingMode "off"))))
   (setq eglot-events-buffer-size 0) ;; No buffer events
   (defun start-flycheck-eglot ()
     (let ((modes-using-flycheck-eglot (list 'python-ts-mode)))
