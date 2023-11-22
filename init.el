@@ -345,8 +345,8 @@
 ;; JS/JSX/TS/TSX
 ;;--------------------------------------------------------------------------------------------------
 (use-package jtsx
-  :mode (("\\.jsx?\\'" . jsx-mode)
-         ("\\.tsx?\\'" . tsx-mode))
+  :mode (("\\.jsx?\\'" . jtsx-jsx-mode)
+         ("\\.tsx?\\'" . jtsx-tsx-mode))
   :commands jtsx-install-treesit-language
   :hook ((js-base-mode . (lambda ()
                            (setq js-indent-level 2)
@@ -374,14 +374,14 @@
     (define-key mode-map (kbd "C-c C-S-<down>") 'jtsx-move-jsx-element-step-in-forward)
     (define-key mode-map (kbd "C-c C-S-<up>") 'jtsx-move-jsx-element-step-in-backward))
 
-  (defun jtsx-bind-keys-to-jsx-mode-map ()
+  (defun jtsx-bind-keys-to-jtsx-jsx-mode-map ()
     (jtsx-bind-keys-to-mode-map js-base-mode-map))
 
-  (defun jtsx-bind-keys-to-tsx-mode-map ()
+  (defun jtsx-bind-keys-to-jtsx-tsx-mode-map ()
     (jtsx-bind-keys-to-mode-map typescript-ts-base-mode-map))
 
-  (add-hook 'jsx-mode-hook 'jtsx-bind-keys-to-jsx-mode-map)
-  (add-hook 'tsx-mode-hook 'jtsx-bind-keys-to-tsx-mode-map)
+  (add-hook 'jtsx-jsx-mode-hook 'jtsx-bind-keys-to-jtsx-jsx-mode-map)
+  (add-hook 'jtsx-tsx-mode-hook 'jtsx-bind-keys-to-jtsx-tsx-mode-map)
 
   (defun eslint-fix-file ()
     "Eslint fix current buffer file."
@@ -603,9 +603,9 @@
                                              python-pycompile
                                              python-mypy))
   (flycheck-add-mode 'javascript-eslint 'js-base-mode)
-  (flycheck-add-mode 'javascript-eslint 'jsx-mode)
+  (flycheck-add-mode 'javascript-eslint 'jtsx-jsx-mode)
   (flycheck-add-mode 'javascript-eslint 'typescript-ts-base-mode)
-  (flycheck-add-mode 'javascript-eslint 'tsx-mode)
+  (flycheck-add-mode 'javascript-eslint 'jtsx-tsx-mode)
   (setq flycheck-python-flake8-executable "python3")
   ;; (setq flycheck-check-syntax-automatically '(save mode-enabled))
   (setq-default flycheck-emacs-lisp-load-path 'inherit)
