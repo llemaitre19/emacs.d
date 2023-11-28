@@ -23,15 +23,14 @@
 (defvar gud-gdb-command-name)
 (defvar buffer-move-behavior)
 (defvar dashboard-items)
-(defvar js2-mode-show-parse-errors)
-(defvar js2-mode-show-strict-warnings)
 (defvar work-path)
 (defvar eslint-bin "eslint_d") ;; npm install -g eslint_d
 (defvar jest-bin)
 (defvar django-tests-dir-name "tests")
 (defvar project-type)
-(defvar db-backup-dir "nil")
+(defvar db-backup-dir nil)
 (defvar db-schema-name)
+(defvar use-flycheck-eglot nil)
 
 ;;--------------------------------------------------------------------------------------------------
 ;; PACKAGES NOT REFERENCED IN MELPA
@@ -233,13 +232,14 @@
   (add-to-list 'eglot-server-programs
                '((js-base-mode typescript-ts-base-mode)
                  . ("typescript-language-server" "--stdio"
-                    :initializationOptions (:preferences (:jsxAttributeCompletionStyle "none")))))
+                    :initializationOptions
+                    (:preferences
+                     (:jsxAttributeCompletionStyle "none")))))
   (setq-default eglot-workspace-configuration
                 `((:pyright . (:typeCheckingMode "off"))))
   (setq eglot-events-buffer-size 0) ;; No buffer events
   (defun start-flycheck-eglot ()
-    (let ((modes-using-flycheck-eglot (list 'python-ts-mode)))
-      (when (member major-mode modes-using-flycheck-eglot) (flycheck-eglot-mode 1)))))
+    (when use-flycheck-eglot (flycheck-eglot-mode 1))))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; PHP
@@ -1022,6 +1022,7 @@
   (setq projectile-install-use-comint-mode t)
   (setq projectile-mode-line-function '(lambda () (format " Prj[%s]" (projectile-project-name))))
   (add-to-list 'projectile-other-file-alist '("json" "json"))
+  (add-to-list 'projectile-other-file-alist '("tsx" "css.ts"))
 
   (setq projectile-globally-ignored-directories
         (append '("*.svn"
@@ -1064,7 +1065,7 @@
         (message "No running command set for %s project" (projectile-project-name)))))
 
   (defun find-other-file-goto-same-line (&optional flex-matching)
-  "Switch to other file at same line than the current buffer"
+  "Switch to other file at same line than the current buffer for *.json file."
   (interactive "P")
   (let ((line (line-number-at-pos)))
     (projectile--find-other-file flex-matching)
