@@ -844,19 +844,20 @@
 ;;--------------------------------------------------------------------------------------------------
 ;; INDIUM
 ;;--------------------------------------------------------------------------------------------------
-;; (use-package indium
-;;   :ensure t
-;;   :after js
-;;   :bind (("C-c i l" . indium-launch)
-;;          ("C-c i q" . indium-quit)
-;;          ("C-c i k" . indium-quit)
-;;          ("C-c i r" . indium-debugger-resume)
-;;          ("C-c i i" . indium-debugger-step-into)
-;;          ("C-c i o" . indium-debugger-step-out)
-;;          ("C-c i SPC" . indium-debugger-step-over))
-;;   :hook (js-base-mode . indium-interaction-mode)
-;;   :init
-;;   (setq indium-client-executable "/home/loic/Travail/Temp/Indium/server/bin/debug_indium.bash"))
+(use-package indium
+  :ensure t
+  :bind (("C-c d l" . indium-launch)
+         ("C-c d q" . indium-quit)
+         ("C-c d k" . indium-quit)
+         ("C-c d b" . indium-toggle-breakpoint)
+         ("C-c d r" . indium-debugger-resume)
+         ("C-c d i" . indium-debugger-step-into)
+         ("C-c d o" . indium-debugger-step-out)
+         ("C-c d SPC" . indium-debugger-step-over)
+         ("C-c d m" . indium-interaction-mode))
+  ;; :init
+  ;; (setq indium-client-executable "/home/loic/Travail/Temp/Indium/server/bin/debug_indium.bash")
+  )
 
 ;;--------------------------------------------------------------------------------------------------
 ;; WINDMOVE & FRAMEMOVE
@@ -1393,7 +1394,7 @@
 ;; IMENU
 ;;--------------------------------------------------------------------------------------------------
 (use-package imenu
-  :bind (("C-c i" . imenu)))
+  :bind (("C-c C-i" . imenu)))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; SHELL
