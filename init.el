@@ -321,7 +321,7 @@
 ;;--------------------------------------------------------------------------------------------------
 ;; Install gettext
 (use-package po-mode
-  ;; :ensure t ;; We do not use po-mode from Melpa because byte compilation issues
+  ;; :ensure t ;; We do not use po-mode from Melpa because of byte compilation issues
   :mode (("\\.po\\'" . po-mode)))
 
 ;;--------------------------------------------------------------------------------------------------
