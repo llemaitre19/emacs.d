@@ -14,16 +14,18 @@ Extends mainly the Emacs default support for these 2 languages :
 
 * [Projectile](https://github.com/bbatsov/projectile): project management
 
-* [Eglot](https://github.com/joaotavora/eglot): LSP client
+* [Eglot (built-in)](https://github.com/joaotavora/eglot): LSP client
 
 * [Flycheck](https://github.com/flycheck/flycheck): syntax checker
 
-* [Jtsx](https://github.com/llemaitre19/jtsx): extends Emacs JSX/TSX built-in support
+* [Jtsx](https://github.com/llemaitre19/jtsx): JSX and TSX edition
+
+* [Web-mode](https://github.com/fxbois/web-mode): web templates
 
 * [RealGUD](https://github.com/realgud/realgud): interface for external debuggers
 
 * [Company](https://github.com/company-mode/company-mode): text completion
 
-* [Rg](https://github.com/dajva/rg.el): interface for the very fast RipGrep search tool
+* [Rg](https://github.com/dajva/rg.el): interface for RipGrep search tool
 
 * [Org](https://github.com/bzg/org-mode): notes
