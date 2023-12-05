@@ -24,6 +24,6 @@ Extends mainly the Emacs default support for these 2 languages :
 
 * [Company](https://github.com/company-mode/company-mode): text completion
 
-* [Ag](https://github.com/Wilfred/ag.el): interface for the very fast Silver Searcher tool
+* [Rg](https://github.com/dajva/rg.el): interface for the very fast RipGrep search tool
 
 * [Org](https://github.com/bzg/org-mode): notes

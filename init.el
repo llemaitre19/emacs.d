@@ -1,4 +1,4 @@
-;;; init.el --- Loic's Emacs configuration file
+;; init.el --- Loic's Emacs configuration file
 ;;
 ;;; Commentary:
 ;;
@@ -869,7 +869,6 @@
 ;;--------------------------------------------------------------------------------------------------
 ;; BUFFERMOVE
 ;;--------------------------------------------------------------------------------------------------
-
 (use-package buffer-move
   :ensure t
   :bind (("M-S-<up>" . buf-move-up)
@@ -949,42 +948,54 @@
   (set-face-attribute 'dashboard-items-face nil :underline nil))
 
 ;;--------------------------------------------------------------------------------------------------
-;; AG
+;; RG
 ;;--------------------------------------------------------------------------------------------------
-(use-package ag
+(use-package rg
   :ensure t
-  :bind (("C-c a p" . ag-project)
-         ("C-c a r" . ag-project-regexp)
-         ("C-c a a" . ag-app_v2)
-         ("C-c a l" . ag-find-in-libs))
-  :preface
-  (declare-function ag/read-from-minibuffer "ag")
-  (declare-function ag/search "ag")
-  :defines last-ag-find-in-libs-path
-  :functions (projectile-project-name projectile-project-root ag/search)
+  :functions (rg-read-pattern dired-current-directory rg-run)
+  :bind (("C-c r g" . rg-search)
+         ("C-c r G" . rg-search-regexp)
+         ("C-c r p" . rg-project-search)
+         ("C-c r P" . rg-project-search-regexp)
+         ("C-c r l" . rg-libs-search)
+         ("C-c r L" . rg-libs-search-regexp))
+  :custom
+  (rg-command-line-flags '("-z" "--type-not minified"))
+  (rg-default-alias-fallback "everything")
   :config
-  (setq ag-highlight-search t)
-  (setq ag-reuse-buffers t)
-  (setq-default ag-ignore-list '("**.min.*"))
+  (rg-define-search rg-search-regexp
+    "Search everything."
+    :files "everything")
 
-  (defun ag-app_v2 (string)
-    "Find string in app_v2"
-    (interactive (list (ag/read-from-minibuffer "Search string")))
-    (ag/search string (concat (projectile-project-root) "/..")))
+  (rg-define-search rg-search
+    "Search everything."
+    :format literal
+    :files "everything")
 
-  (defun ag-find-in-libs (string)
-     "Find string in project libraries"
-    (interactive (list (ag/read-from-minibuffer "Search string")))
-    (let ((dir (pcase (projectile-project-name)
-                 ("web-app" (concat (projectile-project-root) "/node_modules"))
-                 ("django-api" (concat python-shell-virtualenv-root "/lib"))
-                 (_ (if (boundp 'last-ag-find-in-libs-path)
-                        last-ag-find-in-libs-path
-                      (projectile-project-root))))))
-      (setq last-ag-find-in-libs-path dir)
-      (ag/search string dir))))
+  (rg-define-search rg-project-search-regexp
+    "Search everything in a project."
+    :dir project
+    :files "everything")
 
-(use-package wgrep-ag)
+  (rg-define-search rg-project-search
+    "Search everything in a project."
+    :dir project
+    :format literal
+    :files "everything")
+
+  (defun rg-libs-search-regexp (query &optional literal)
+    "Find QUERY in project libraries."
+    (interactive (list (rg-read-pattern)))
+    (let ((dir (pcase project-type
+                 ("node" (concat (projectile-project-root) "/node_modules"))
+                 ("python" (concat python-shell-virtualenv-root "/lib"))
+                 (_ (dired-current-directory)))))
+      (funcall (if literal #'rg-search #'rg-search-regexp) query dir)))
+
+  (defun rg-libs-search (query)
+    "Find QUERY in project libraries."
+    (interactive (list (rg-read-pattern t)))
+    (rg-libs-search-regexp query t)))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; PROJECTILE
