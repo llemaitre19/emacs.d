@@ -227,7 +227,7 @@
   :config
   (add-to-list 'eglot-stay-out-of 'flymake)
   ;; Javascript/Typescript -> ts server: npm install -g typescript-language-server
-  ;; C/C++ -> clangd : sudo apt install clangd
+  ;; C/C++ -> clangd : apt install clangd
   ;; Python -> pyright: pip install pyright
   (add-to-list 'eglot-server-programs
                '((js-base-mode typescript-ts-base-mode)
@@ -951,6 +951,7 @@
 ;; RG
 ;;--------------------------------------------------------------------------------------------------
 (use-package rg
+  ;; Install ripgrep: apt install ripgrep
   :ensure t
   :functions (rg-read-pattern dired-current-directory rg-run)
   :bind (("C-c r g" . rg-search)
