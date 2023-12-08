@@ -961,7 +961,7 @@
          ("C-c r l" . rg-libs-search)
          ("C-c r L" . rg-libs-search-regexp))
   :custom
-  (rg-command-line-flags '("-z" "--type-not minified"))
+  (rg-command-line-flags '("-z" "--type-not minified" "-g '!*.map'"))
   (rg-default-alias-fallback "everything")
   :config
   (rg-define-search rg-search-regexp
