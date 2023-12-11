@@ -640,8 +640,7 @@
 (use-package flycheck-eglot
   :ensure t
   :after (flycheck eglot)
-  :config
-  (setq flycheck-eglot-exclusive nil))
+  :custom (flycheck-eglot-exclusive nil))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; MAGIT
