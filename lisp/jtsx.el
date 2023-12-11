@@ -6,7 +6,7 @@
 ;; Maintainer: Loïc Lemaître <loic.lemaitre@gmail.com>
 ;; URL: https://github.com/llemaitre19/jtsx
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Keywords: languages
 
 ;; This file is NOT part of GNU Emacs.
@@ -69,6 +69,8 @@ First element of ARGS and t are the new arguments."
   "Extends default treesit support for JSX/TSX."
   :group 'languages)
 
+;; TODO: the switch indentation level (ie case and default) should default to the major mode
+;; indentation level (most common than no indentation). To be done into a major jtsx release.
 (defcustom jtsx-switch-indent-offset 0
   "Offset for indenting the contents of a switch block.
 The value must not be negative."
@@ -93,6 +95,12 @@ continuated expression."
 
 (defcustom jtsx-enable-jsx-electric-closing-element t
   "Enable electric JSX closing element feature."
+  :type 'boolean
+  :safe 'booleanp
+  :group 'jtsx)
+
+(defcustom jtsx-enable-electric-open-newline-between-jsx-element-tags t
+  "Enable electric new line between jsx element tags."
   :type 'boolean
   :safe 'booleanp
   :group 'jtsx)
@@ -527,6 +535,37 @@ N is a numeric prefix argument.  If greater than 1, insert N times `>', but
             (when (jtsx-treesit-syntax-error-p)
               (save-excursion (insert closing-tag)))))))))
 
+(defun jtsx-inside-empty-inline-jsx-element-p ()
+  "Return t if inside an empty inline jsx element.
+For example:
+<></>
+<A></A>
+<A
+  attribute
+></A>"
+  (when (jtsx-jsx-context-p)
+    (when-let* ((node (treesit-node-at (point))))
+      (when (equal (treesit-node-type node) "</")
+        (when-let* ((element-node (jtsx-enclosing-jsx-element node))
+                    (open-tag (treesit-node-child-by-field-name element-node "open_tag"))
+                    (close-tag (treesit-node-child-by-field-name element-node "close_tag"))
+                    (open-tag-end-line (line-number-at-pos (treesit-node-end open-tag)))
+                    (close-tag-start-line (line-number-at-pos (treesit-node-start close-tag)))
+                    ;; The function is called after newline insertion, so close tag is one line
+                    ;; after the opening one
+                    (inline-element-node (eq (- close-tag-start-line open-tag-end-line) 1)))
+          ;; Check that the element has no children others than open and close tag
+          (eq (treesit-node-child-count element-node) 2))))))
+
+(defun jtsx-electric-open-newline-between-jsx-element-tags-psif ()
+  "Honor `jtsx-enable-electric-open-newline-between-jsx-element-tags'.
+Member of `post-self-insert-hook'."
+  (when (and jtsx-enable-electric-open-newline-between-jsx-element-tags
+             (eq last-command-event ?\n)
+             (jtsx-jsx-context-p)
+             (jtsx-inside-empty-inline-jsx-element-p))
+    (save-excursion (newline 1 t))))
+
 (defun jtsx-trimmed-region ()
   "Return the trimmed region as a plist.
 Keys are `:start' and `:end'."
@@ -644,6 +683,9 @@ MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
   (define-key mode-map [remap comment-dwim] 'jtsx-comment-dwim)
   (define-key mode-map ">" #'jtsx-jsx-electric-closing-element)
 
+  ;; Add hook for electric new line
+  (add-hook 'post-self-insert-hook #'jtsx-electric-open-newline-between-jsx-element-tags-psif)
+
   ;; JSX folding with Hideshow
   (add-to-list 'hs-special-modes-alist
                `(,mode "{\\|(\\|<[^/>]*>" "}\\|)\\|</[^/>]*>" "/[*/]"
@@ -729,9 +771,20 @@ WHEN indicates when the mode starts to be obsolete."
       (jtsx-ts-remove-indent-rule ts-lang-key
                                   '((node-is "switch_\\(?:case\\|default\\)") parent-bol 0))
       (when (version= emacs-version "29.1")
+        ;; Fix indentation bug.
+        ;; (see https://lists.gnu.org/archive/html/bug-gnu-emacs/2023-08/msg00676.html)
         (jtsx-ts-remove-indent-rule ts-lang-key '(js-jsx--treesit-indent-compatibility-bb1f97b))
         (mapc (lambda (rule) (jtsx-ts-add-indent-rule 'javascript rule))
               (js-jsx--treesit-indent-compatibility-bb1f97b)))
+      ;; Fix font lock bug when treesit-font-lock-level is equal to 4: property conflicts with jsx
+      ;; attribute font lock rule.
+      ;; (see https://debbugs.gnu.org/cgi/bugreport.cgi?bug=67684)
+      (setq-local treesit-font-lock-feature-list
+                  ;; Let the 3 first levels unchanged
+                  `(,@(cl-subseq treesit-font-lock-feature-list 0 3)
+                    ;; Remove "property" in the 4th level
+                    ,(seq-filter (lambda (feat) (not (eq feat 'property)))
+                                 (nth 3 treesit-font-lock-feature-list))))
       (jtsx-configure-mode-base 'jtsx-jsx-mode jtsx-jsx-mode-map ts-lang-key 'js-indent-level))))
 
 ;; Keep old jsx-mode for backward compatibility but mark it as obsolete.
@@ -743,8 +796,13 @@ WHEN indicates when the mode starts to be obsolete."
   :group 'jtsx
   (let ((ts-lang-key 'tsx))
     (when (treesit-ready-p ts-lang-key)
-      (setq-local jtsx-ts-indent-rules (typescript-ts-mode--indent-rules 'tsx))
-      (jtsx-configure-mode-base 'jtsx-tsx-mode jtsx-tsx-mode-map 'tsx
+      (setq-local jtsx-ts-indent-rules (typescript-ts-mode--indent-rules ts-lang-key))
+      ;; Remove specific indent rule for `case' and `default' (introduced by commit ab12628) which
+      ;; defeats `jtsx-switch-indent-offset' option.
+      (jtsx-ts-remove-indent-rule ts-lang-key  '((or (node-is "case")
+                                                     (node-is "default"))
+                                                 parent-bol typescript-ts-mode-indent-offset))
+      (jtsx-configure-mode-base 'jtsx-tsx-mode jtsx-tsx-mode-map ts-lang-key
                                 'typescript-ts-mode-indent-offset))))
 
 ;; Keep old tsx-mode for backward compatibility but mark it as obsolete.
