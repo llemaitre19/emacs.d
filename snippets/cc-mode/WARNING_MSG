@@ -1,5 +1,0 @@
-# -*- mode: snippet -*-
-# name: WARNING_MSG macro
-# key: WARNING_MSG
-# --
-WARNING_MSG("$1");

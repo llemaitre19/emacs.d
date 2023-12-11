@@ -1,5 +1,0 @@
-# -*- mode: snippet -*-
-# name: STATIC_WARNING_MSG macro
-# key: STATIC_WARNING_MSG
-# --
-STATIC_WARNING_MSG("$1", "$2");

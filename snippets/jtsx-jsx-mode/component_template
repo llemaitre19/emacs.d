@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: component template
+# key: comp
+# --
+import React from 'react';
+
+function $1() {
+  return (
+    $2
+  );
+}
+
+export default $1;
