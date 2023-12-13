@@ -328,6 +328,7 @@
 ;; XML
 ;;--------------------------------------------------------------------------------------------------
 (use-package nxml-mode
+  :mode (("\\.svg\\'" . nxml-mode))
   :bind (:map nxml-mode-map (("C-c ! f" . xml-format)))
   :config
   (defun xml-format ()
