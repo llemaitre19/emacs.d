@@ -6,7 +6,7 @@
 ;; Maintainer: Loïc Lemaître <loic.lemaitre@gmail.com>
 ;; URL: https://github.com/llemaitre19/jtsx
 ;; Package-Requires: ((emacs "29.1"))
-;; Version: 0.3.1
+;; Version: 0.3.3
 ;; Keywords: languages
 
 ;; This file is NOT part of GNU Emacs.
@@ -34,9 +34,9 @@
 ;; Summary of features and fixes:
 ;; * Fix commenting and indenting issues with JSX code in Emacs built-in
 ;; js-ts-mode and tsx-ts-mode modes
-;; * Refactoring: moving, wrapping, renaming `JSX` elements
+;; * Refactoring: moving, wrapping/unwrapping, deleting, renaming `JSX` elements
 ;; * Jumping between opening and closing `JSX` elements
-;; * Electric JSX closing element
+;; * Electric JSX closing element and new line
 ;; * Code folding
 
 ;; Note on the default configuration:
@@ -207,17 +207,19 @@ If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
         enclosing-node
       (jtsx-enclosing-jsx-node node fallback-types nil include-node jsx-exp-guard))))
 
-(defun jtsx-enclosing-jsx-element (node)
-  "Get first parent of NODE matching `jsx_element' type."
-  (jtsx-enclosing-jsx-node node '("jsx_element") nil t))
+(defun jtsx-enclosing-jsx-element (node &optional jsx-exp-guard)
+  "Get first parent of NODE matching `jsx_element' type.
+If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
+  (jtsx-enclosing-jsx-node node '("jsx_element") nil t jsx-exp-guard))
 
-(defun jtsx-enclosing-jsx-element-at-point ()
-  "Get first parent matching `jsx_element' type at point."
-  (jtsx-enclosing-jsx-element (treesit-node-at (point))))
+(defun jtsx-enclosing-jsx-element-at-point (&optional jsx-exp-guard)
+  "Get first parent matching `jsx_element' type at point.
+If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
+  (jtsx-enclosing-jsx-element (treesit-node-at (point)) jsx-exp-guard))
 
 (defun jtsx-jump-jsx-opening-tag ()
   "Jump to the opening tag of the JSX element."
-  (interactive)
+  (interactive "^")
   (let ((enclosing-element (jtsx-enclosing-jsx-element-at-point)))
     (if enclosing-element
         (goto-char (1+ (treesit-node-start enclosing-element))) ; +1 to jump right after the "<"
@@ -225,7 +227,7 @@ If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
 
 (defun jtsx-jump-jsx-closing-tag ()
   "Jump to the closing tag of the JSX element."
-  (interactive)
+  (interactive "^")
   (let ((enclosing-element (jtsx-enclosing-jsx-element-at-point)))
     (if enclosing-element
         (goto-char (1- (treesit-node-end enclosing-element))) ; -1 to jump right before the "/>"
@@ -233,7 +235,7 @@ If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
 
 (defun jtsx-jump-jsx-element-tag-dwim ()
   "Jump either to the opening or the closing tag of the JSX element."
-  (interactive)
+  (interactive "^")
   (let ((enclosing-element (jtsx-enclosing-jsx-element-at-point)))
     (if enclosing-element
         (let ((start (treesit-node-start enclosing-element))
@@ -243,25 +245,33 @@ If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
             (jtsx-jump-jsx-closing-tag))) ; We are closer to the opening tag.
       (message "No JSX element found."))))
 
-(defun jtsx-rename-jsx-identifier (node new-name)
-  "Rename the NODE named tag to NEW-NAME."
+(defun jtsx-rename-jsx-identifier (node new-name &optional move-cursor)
+  "Rename the NODE named tag to NEW-NAME.
+If MOVE-CURSOR is t, let the cursor at the end of the insertion."
   (let ((node-start (treesit-node-start node))
         (node-end (treesit-node-end node)))
     (cl-assert (and node-start node-end) nil "Unable to retrieve start or end of node.")
-    (save-excursion
-      (delete-region node-start node-end)
-      (goto-char node-start)
-      (insert new-name)
-      (point))))
+    (let ((new-identifier-end-pos (save-excursion
+                                    (delete-region node-start node-end)
+                                    (goto-char node-start)
+                                    (insert new-name)
+                                    (point))))
+      (when move-cursor
+        (goto-char new-identifier-end-pos)))
+    t))
 
-(defun jtsx-rename-jsx-fragment (node new-name)
-  "Rename the NODE fragment to NEW-NAME."
+(defun jtsx-rename-jsx-fragment (node new-name &optional move-cursor)
+  "Rename the NODE fragment to NEW-NAME.
+If MOVE-CURSOR is t, let the cursor at the end of the insertion."
   (let ((node-end (treesit-node-end node)))
     (cl-assert node-end nil "Unable to retrieve end of node.")
-    (save-excursion
-      (goto-char (1- node-end)) ; -1 to be inside <> or </>
-      (insert new-name)
-      (point))))
+    (let ((new-identifier-end-pos (save-excursion
+                                    (goto-char (1- node-end)) ; -1 to be inside <> or </>
+                                    (insert new-name)
+                                    (point))))
+      (when move-cursor
+        (goto-char new-identifier-end-pos)))
+    t))
 
 (defun jtsx-jsx-fragment-p (node)
   "Check if NODE is a JSX fragment."
@@ -270,7 +280,7 @@ If JSX-EXP-GUARD is not nil, do not traverse jsx expression."
        ;; Other JSX elemeny tags have at least one additinal children which is the identifier.
        (eq (treesit-node-child-count node) 2)))
 
-(defun jtsx-rename-jsx-element-tag (new-name child-field-name &optional)
+(defun jtsx-rename-jsx-element-tag (new-name child-field-name)
   "Rename a JSX element tag to NEW-NAME.
 CHILD-FIELD-NAME identify the tag to rename (`open_tag' or `close_tag')."
   (cl-assert (member child-field-name '("open_tag" "close_tag"))
@@ -278,9 +288,18 @@ CHILD-FIELD-NAME identify the tag to rename (`open_tag' or `close_tag')."
   ;; Node and parent node are not passed as argument because they must be as up to
   ;; date as possible since the function alters the buffer and hense the treesit
   ;; tree.
-  ;; Note that treesit parser is robust enough to be not confused by mismaching
+  ;; Note that treesit parser is robust enough to be not too confused by mismaching
   ;; element tag identifiers.
   (let* ((node (treesit-node-at (point)))
+         ;; Field names can be wrong because of mismatching element tag identifiers, so
+         ;; using types is safer here.
+         (current-tag-node-type (treesit-node-type (treesit-node-parent node)))
+         ;; We want to move the cursor only for the tag the cursor is already into.
+         (move-cursor (or
+                       (and (equal current-tag-node-type "jsx_opening_element")
+                            (equal child-field-name "open_tag"))
+                       (and (equal current-tag-node-type "jsx_closing_element")
+                           (equal child-field-name "close_tag"))))
          (element-node (jtsx-enclosing-jsx-element node)))
     (cl-assert element-node nil "Unable to retrieve the enclosing jsx_element node.")
     (let* ((tag-node (treesit-node-child-by-field-name element-node child-field-name))
@@ -289,8 +308,8 @@ CHILD-FIELD-NAME identify the tag to rename (`open_tag' or `close_tag')."
                              ;; Get identifier node
                              (treesit-node-child-by-field-name tag-node "name"))))
       (cl-assert node-to-rename nil "Unable to retrieve the node to rename.")
-      (if fragment (jtsx-rename-jsx-fragment node-to-rename new-name)
-        (jtsx-rename-jsx-identifier node-to-rename new-name)))))
+      (if fragment (jtsx-rename-jsx-fragment node-to-rename new-name move-cursor)
+        (jtsx-rename-jsx-identifier node-to-rename new-name move-cursor)))))
 
 (defun jtsx-rename-jsx-element (new-name)
   "Rename a JSX element to NEW-NAME at point.
@@ -302,7 +321,7 @@ Point can be in the opening or closing."
          (parent-node-type (treesit-node-type parent-node)))
     (unless (and (member node-type '("identifier" ">"))
                  (cond ((equal parent-node-type "jsx_self_closing_element")
-                        (jtsx-rename-jsx-identifier node new-name))
+                        (jtsx-rename-jsx-identifier node new-name t))
                        ((member parent-node-type jtsx-jsx-ts-element-tag-keys)
                         (jtsx-rename-jsx-element-tag new-name "open_tag")
                         (jtsx-rename-jsx-element-tag new-name "close_tag"))))
@@ -425,6 +444,12 @@ Return a plist containing the move information : `:node-start', `:node-end',
   (eq pos (save-excursion (goto-char pos)
                           (pos-eol))))
 
+(defun jtsx-inline-content-p (start-pos end-pos)
+  "Return t if the content between START-POS and END-POS is inline.
+The content is considered inline if there are some none whitespaces before
+or after it."
+  (or (not (jtsx-bolc-at-p start-pos)) (not (jtsx-eol-at-p end-pos))))
+
 (defun jtsx-move-jsx-element (full-element-move backward &optional allow-step-in)
   "Move a JSX element (or any JSX root node).
 Root nodes are defined in `jtsx-jsx-ts-root-keys'.
@@ -439,7 +464,7 @@ used if FULL-ELEMENT-MOVE is t."
                  (node-end (plist-get res :node-end))
                  (new-pos (plist-get res :new-pos))
                  ;; Node is inline if after or before content on its own line
-                 (inline-node (or (not (jtsx-bolc-at-p node-start)) (not (jtsx-eol-at-p node-end))))
+                 (inline-node (jtsx-inline-content-p node-start node-end))
                  ;; New position is inline if surrounded by content on its own line
                  (inline-new-pos (and (not (jtsx-bolc-at-p new-pos)) (not (jtsx-eol-at-p new-pos))))
                  (delete-region-start (if inline-node
@@ -485,23 +510,23 @@ used if FULL-ELEMENT-MOVE is t."
   (jtsx-move-jsx-element nil t))
 
 (defun jtsx-move-jsx-element-forward ()
-  "Move a JSX element (or any JSX root node) forward."
+  "Move a JSX element (or any JSX node) forward."
   (interactive)
   (jtsx-move-jsx-element t nil))
 
 (defun jtsx-move-jsx-element-backward ()
-  "Move a JSX element (or any JSX root node) backward."
+  "Move a JSX element (or any JSX node) backward."
   (interactive)
   (jtsx-move-jsx-element t t))
 
 (defun jtsx-move-jsx-element-step-in-forward ()
-  "Move a JSX element (or any JSX root node) forward.
+  "Move a JSX element (or any JSX node) forward.
 Step into sibling elements if possible."
   (interactive)
   (jtsx-move-jsx-element t nil t))
 
 (defun jtsx-move-jsx-element-step-in-backward ()
-  "Move a JSX element (or any JSX root node) backward.
+  "Move a JSX element (or any JSX node) backward.
 Step into sibling elements if possible."
   (interactive)
   (jtsx-move-jsx-element t t t))
@@ -581,52 +606,122 @@ Keys are `:start' and `:end'."
                             (point))))
     (if (< trimmed-start-pos trimmed-end-pos)
         `(:start ,trimmed-start-pos :end ,trimmed-end-pos)
-      ;; Something is going wrong, fallback to initail region
+      ;; Something is going wrong, fallback to initial region
       `(:start ,start-pos :end ,end-pos))))
 
+(defun jtsx-region-to-wrap ()
+  "Return the expected region to be wrapped as a plist.
+Keys are `:start' and `:end'."
+  (let* ((region (if (region-active-p) (jtsx-trimmed-region) `(:start ,(point) :end ,(point))))
+         (start-pos (plist-get region :start))
+         (end-pos (plist-get region :end))
+         (start-element (jtsx-enclosing-jsx-node (treesit-node-at start-pos)
+                                                 jtsx-jsx-ts-root-keys nil t t))
+         (end-element (if (region-active-p)
+                          ;; It is safer to go back by one character as treesit looks at
+                          ;; the node after the position (excepted when at the end of the line).
+                          ;; This is usefull for inline elements.
+                          (jtsx-enclosing-jsx-node (treesit-node-at (1- end-pos))
+                                                   jtsx-jsx-ts-root-keys nil t t)
+                        start-element))
+         (start-element-type (treesit-node-type start-element))
+         (end-element-type (treesit-node-type end-element)))
+    (cl-assert (and start-element end-element) "Not able to retrieve node start or node end.")
+    (if (and
+         (region-active-p)
+         (equal start-element-type "jsx_text")
+         (equal end-element-type "jsx_text"))
+        ;; Handle specific case: selection inside a text node (eg to wrap a text with `strong'
+        ;; tags)
+        `(:start ,start-pos :end ,end-pos)
+      ;; General case: use treesit tree to get or adjust the expected region to be wrapped
+      `(:start ,(treesit-node-start start-element) :end ,(treesit-node-end end-element)))))
+
 (defun jtsx-wrap-in-jsx-element (element-name)
-  "Wrap JSX root nodes in a JSX element.
+  "Wrap JSX nodes in a JSX element.
 Nodes are selected by a region if there is an active one.  Else the node at
  point is used.
 ELEMENT-NAME is the name of the new wrapping element."
   (interactive "sJSX element name: ")
   (if (jtsx-jsx-context-p)
-      (let* ((start-pos (if (region-active-p) (plist-get (jtsx-trimmed-region) :start) (point)))
-             ;; For the end position, it is safer to go back by one character as treesit looks at
-             ;; the node after the position (excepted when at the end of the line).
-             ;; This is usefull for inline elements.
-             (end-pos (if (region-active-p) (1- (plist-get (jtsx-trimmed-region) :end)) (point)))
-             (element-start (jtsx-enclosing-jsx-node (treesit-node-at start-pos)
-                                                     jtsx-jsx-ts-root-keys nil t t))
-             (element-end (if (region-active-p)
-                              (jtsx-enclosing-jsx-node (treesit-node-at end-pos)
-                                                       jtsx-jsx-ts-root-keys nil t t)
-                            element-start)))
-        (cl-assert (and element-start element-end) "Not able to retrieve node start or node end.")
-        (let* ((final-start-pos (treesit-node-start element-start))
-               (final-end-pos (treesit-node-end element-end))
-               ;; Opening tag is considered inline if something is before it on the same line.
-               ;; Same consideration for closing tag, but after it.
-               (inline-opening (not (jtsx-bolc-at-p final-start-pos)))
-               (inline-closing (not (jtsx-eol-at-p final-end-pos)))
-               (opening-line (line-number-at-pos (treesit-node-start element-start)))
-               (closing-line (+ (line-number-at-pos (treesit-node-end element-end))
-                                (if inline-closing 0 1))) ; +1 for insertion if not inline
-               (opening-tag (format "<%s>%s" element-name (if inline-opening "" "\n")))
-               (closing-tag (format "</%s>%s" element-name (if inline-closing "" "\n"))))
-          (save-excursion
-            (if inline-closing (goto-char final-end-pos) (jtsx-goto-line closing-line))
-            (insert closing-tag)
-            (if inline-opening (goto-char final-start-pos) (jtsx-goto-line opening-line))
-            (insert opening-tag))
-          ;; Let the cursor ready to add attributes in the wrapping element
-          (goto-char final-start-pos)
-          (search-forward ">")
-          (backward-char 1)
-          ;; Finally indent modified region
-          (indent-region (save-excursion (jtsx-goto-line opening-line) (pos-bol))
-                         (save-excursion (jtsx-goto-line (+ closing-line (if inline-opening 0 1)))
-                                         (pos-eol)))))
+      (let* ((region-to-wrap (jtsx-region-to-wrap))
+             (start-pos (plist-get region-to-wrap :start))
+             (end-pos (plist-get region-to-wrap :end))
+             (inline-element (jtsx-inline-content-p start-pos end-pos))
+             (opening-line (line-number-at-pos start-pos))
+             (closing-line (+ (line-number-at-pos end-pos)
+                              (if inline-element 0 1))) ; +1 for insertion if not inline
+             (opening-tag (format "<%s>%s" element-name (if inline-element "" "\n")))
+             (closing-tag (format "</%s>%s" element-name (if inline-element "" "\n"))))
+        (save-excursion
+          (if inline-element (goto-char end-pos) (jtsx-goto-line closing-line))
+          (insert closing-tag)
+          (if inline-element (goto-char start-pos) (jtsx-goto-line opening-line))
+          (insert opening-tag))
+        ;; Let the cursor ready to add attributes in the wrapping element
+        (goto-char start-pos)
+        (search-forward ">")
+        (backward-char 1)
+        ;; Finally indent modified region
+        (indent-region (save-excursion (jtsx-goto-line opening-line) (pos-bol))
+                       (save-excursion (jtsx-goto-line (+ closing-line (if inline-element 0 1)))
+                                       (pos-eol)))))
+  (message "Not inside jsx context."))
+
+(defun jtsx-unwrap-jsx ()
+  "Unwrap JSX nodes wrapped in the node at point."
+  (interactive)
+  (if (jtsx-jsx-context-p)
+      (if-let ((node (jtsx-enclosing-jsx-element-at-point t)))
+          (let* ((opening-tag (treesit-node-child-by-field-name node "open_tag"))
+                 (closing-tag (treesit-node-child-by-field-name node "close_tag"))
+                 (opening-start-pos (treesit-node-start opening-tag))
+                 (opening-end-pos (treesit-node-end opening-tag))
+                 (closing-start-pos (treesit-node-start closing-tag))
+                 (closing-end-pos (treesit-node-end closing-tag)))
+            (cl-assert (and opening-start-pos
+                            opening-end-pos
+                            closing-start-pos
+                            closing-end-pos)
+                       "At least one of the opening or closing element positions is nil.")
+            (let* ((inline-opening-tag (jtsx-inline-content-p opening-start-pos opening-end-pos))
+                   (inline-closing-tag (jtsx-inline-content-p closing-start-pos closing-end-pos))
+                   (final-opening-start-pos (if inline-opening-tag
+                                                opening-start-pos
+                                              (save-excursion (goto-char opening-start-pos)
+                                                              (forward-line -1)
+                                                              (pos-eol))))
+                   (final-opening-end-pos opening-end-pos)
+                   (final-closing-start-pos closing-start-pos)
+                   (final-closing-end-pos (if inline-closing-tag
+                                              closing-end-pos
+                                            (save-excursion (goto-char closing-end-pos)
+                                                            (forward-line 1)
+                                                            (point))))
+                   (wrapped-region-size (- final-closing-start-pos final-opening-end-pos)))
+            (delete-region final-closing-start-pos final-closing-end-pos)
+            (delete-region final-opening-start-pos final-opening-end-pos)
+            (indent-region final-opening-start-pos (+ final-opening-start-pos
+                                                      wrapped-region-size))
+            (goto-char (1+ opening-start-pos)))) ; +1 to ensure to be inside the children
+        (message "Not able to retrieve the wrapping node."))
+    (message "Not inside jsx context.")))
+
+(defun jtsx-delete-jsx-node ()
+  "Delete a JSX node at point and its children."
+  (interactive)
+  (if (jtsx-jsx-context-p)
+      (if-let ((node (jtsx-enclosing-jsx-node (treesit-node-at (point))
+                                              jtsx-jsx-ts-root-keys
+                                              nil
+                                              t
+                                              t)))
+          (let ((start-pos (treesit-node-start node))
+                (end-pos (treesit-node-end node)))
+            (cl-assert (and start-pos end-pos) "`start-pos' or `end-pos' is nil.")
+            ;; Use kill-region to save the content into the clipboard.
+            (kill-region start-pos end-pos))
+        (message "Not able to retrieve the node to delete."))
     (message "Not inside jsx context.")))
 
 (defun jtsx-hs-forward-sexp (n)
@@ -772,19 +867,19 @@ WHEN indicates when the mode starts to be obsolete."
                                   '((node-is "switch_\\(?:case\\|default\\)") parent-bol 0))
       (when (version= emacs-version "29.1")
         ;; Fix indentation bug.
-        ;; (see https://lists.gnu.org/archive/html/bug-gnu-emacs/2023-08/msg00676.html)
+        ;; (see https://debbugs.gnu.org/cgi/bugreport.cgi?bug=65134)
         (jtsx-ts-remove-indent-rule ts-lang-key '(js-jsx--treesit-indent-compatibility-bb1f97b))
         (mapc (lambda (rule) (jtsx-ts-add-indent-rule 'javascript rule))
-              (js-jsx--treesit-indent-compatibility-bb1f97b)))
-      ;; Fix font lock bug when treesit-font-lock-level is equal to 4: property conflicts with jsx
-      ;; attribute font lock rule.
-      ;; (see https://debbugs.gnu.org/cgi/bugreport.cgi?bug=67684)
-      (setq-local treesit-font-lock-feature-list
-                  ;; Let the 3 first levels unchanged
-                  `(,@(cl-subseq treesit-font-lock-feature-list 0 3)
-                    ;; Remove "property" in the 4th level
-                    ,(seq-filter (lambda (feat) (not (eq feat 'property)))
-                                 (nth 3 treesit-font-lock-feature-list))))
+              (js-jsx--treesit-indent-compatibility-bb1f97b))
+        ;; Fix font lock bug when treesit-font-lock-level is equal to 4: property conflicts with jsx
+        ;; attribute font lock rule.
+        ;; (see https://debbugs.gnu.org/cgi/bugreport.cgi?bug=67684)
+        (setq-local treesit-font-lock-feature-list
+                    ;; Let the 3 first levels unchanged
+                    `(,@(cl-subseq treesit-font-lock-feature-list 0 3)
+                      ;; Remove "property" in the 4th level
+                      ,(seq-filter (lambda (feat) (not (eq feat 'property)))
+                                   (nth 3 treesit-font-lock-feature-list)))))
       (jtsx-configure-mode-base 'jtsx-jsx-mode jtsx-jsx-mode-map ts-lang-key 'js-indent-level))))
 
 ;; Keep old jsx-mode for backward compatibility but mark it as obsolete.

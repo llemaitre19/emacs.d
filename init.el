@@ -370,6 +370,8 @@
     (define-key mode-map (kbd "C-c j o") 'jtsx-jump-jsx-opening-tag)
     (define-key mode-map (kbd "C-c j c") 'jtsx-jump-jsx-closing-tag)
     (define-key mode-map (kbd "C-c j w") 'jtsx-wrap-in-jsx-element)
+    (define-key mode-map (kbd "C-c j u") 'jtsx-unwrap-jsx)
+    (define-key mode-map (kbd "C-c j d") 'jtsx-delete-jsx-node)
     (define-key mode-map (kbd "C-c <down>") 'jtsx-move-jsx-element-tag-forward)
     (define-key mode-map (kbd "C-c <up>") 'jtsx-move-jsx-element-tag-backward)
     (define-key mode-map (kbd "C-c C-<down>") 'jtsx-move-jsx-element-forward)
