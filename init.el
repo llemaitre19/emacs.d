@@ -1235,6 +1235,7 @@
          ("C-c o R" . open-previous-time-report)
          ("C-c o t l" . org-todo-list)
          ("C-c o c l" . org-agenda-show-custom)
+         ("C-c o a l" . org-agenda-list)
          ("C-c <left>" . org-metaleft)
          ("C-c <right>" . org-metaright)
          ("C-c o e s" . org-slack-export-to-clipboard-as-slack)
@@ -1244,7 +1245,6 @@
   :defines (org-agenda-custom-commands
             org-work-path
             org-work-notes-path
-            org-work-agenda-path
             org-work-services-path
             org-work-time-report-dir-name)
   :functions (open-work-notes
@@ -1261,10 +1261,9 @@
   (setq org-startup-folded nil)
   (setq org-work-path (concat work-path "/Docs/org-work-notes")
         org-work-notes-path (concat org-work-path "/notes")
-        org-work-agenda-path (concat org-work-path "/agenda")
         org-work-services-path (concat org-work-path "/services")
         org-work-time-report-dir-name "time_report")
-  (setq org-agenda-files (list org-work-agenda-path))
+  (setq org-agenda-files (list org-work-notes-path))
   (setq org-todo-keywords
         '((sequence "TODO" "SUSPENDED" "|" "DONE" "CANCELLED")))
   (setq org-agenda-custom-commands
@@ -1330,9 +1329,8 @@
   (defun org-notes-new-day ()
     "Add new day entry to org notes"
     (interactive)
-    (insert "* ")
+    (insert "* NOTES ")
     (org-insert-time-stamp (current-time))
-    (insert " *")
     (newline)))
 
 (use-package ox-gfm
