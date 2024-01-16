@@ -1027,40 +1027,41 @@
               django-get-test-name-at-point
               python-shell-calculate-command
               django-project-p)
+  :custom
+  (projectile-indexing-method 'alien)
+  (projectile-enable-caching t)
+  (projectile-completion-system 'ivy)
+  (projectile-run-use-comint-mode t)
+  (projectile-install-use-comint-mode t)
+  (projectile-per-project-compilation-buffer t)
+  (projectile-mode-line-function '(lambda () (format " Prj[%s]" (projectile-project-name))))
+  (projectile-globally-ignored-directories
+   (append '("*.svn"
+             "*.git"
+             "ext")
+           projectile-globally-ignored-directories))
+  ;; Only works if index method is 'alien
+  (projectile-globally-ignored-file-suffixes
+   (append '(".o"
+             ".gz"
+             ".z"
+             ".jar"
+             ".tar.gz"
+             ".tgz"
+             ".zip"
+             ".png"
+             ".gif"
+             ".odt"
+             ".pdf"
+             ".DS_Store"
+             "~")
+           projectile-globally-ignored-file-suffixes))
   :config
   (require 'magit) ;; Needed for save-django-pg-database-to-file function.
   (projectile-mode)
-  (setq projectile-indexing-method 'alien)
-  (setq projectile-enable-caching t)
-  (setq projectile-completion-system 'ivy)
-  (setq projectile-run-use-comint-mode t)
-  (setq projectile-install-use-comint-mode t)
-  (setq projectile-mode-line-function '(lambda () (format " Prj[%s]" (projectile-project-name))))
+
   (add-to-list 'projectile-other-file-alist '("json" "json"))
   (add-to-list 'projectile-other-file-alist '("tsx" "css.ts"))
-
-  (setq projectile-globally-ignored-directories
-        (append '("*.svn"
-                  "*.git"
-                  "ext")
-                projectile-globally-ignored-directories))
-
-  ;; Only works if index method is 'alien
-  (setq projectile-globally-ignored-file-suffixes
-        (append '(".o"
-                  ".gz"
-                  ".z"
-                  ".jar"
-                  ".tar.gz"
-                  ".tgz"
-                  ".zip"
-                  ".png"
-                  ".gif"
-                  ".odt"
-                  ".pdf"
-                  ".DS_Store"
-                  "~")
-                projectile-globally-ignored-file-suffixes))
 
   (defun run-project()
     "Run a project"
