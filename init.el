@@ -940,13 +940,10 @@
 ;;--------------------------------------------------------------------------------------------------
 (use-package dashboard
   :ensure t
-  :defines show-week-agenda-p
   :config
   (dashboard-setup-startup-hook)
   (setq dashboard-items '((recents  . 20)
-                          (projects . 5)
-                          (agenda . 15)))
-  (setq show-week-agenda-p t)
+                          (projects . 5)))
   (set-face-attribute 'dashboard-items-face nil :underline nil))
 
 ;;--------------------------------------------------------------------------------------------------
