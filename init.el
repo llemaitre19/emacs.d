@@ -360,6 +360,7 @@
   :custom
   (jtsx-switch-indent-offset 2)
   (jtsx-indent-statement-block-regarding-standalone-parent t)
+  (jtsx-enable-jsx-element-tags-auto-sync t)
   :config
   (defun jtsx-bind-keys-to-mode-map (mode-map)
     "Bind keys to MODE-MAP."
