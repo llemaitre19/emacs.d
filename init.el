@@ -1254,6 +1254,7 @@
               get-client-time-report-path)
   :custom
   (org-support-shift-select t)
+  (org-agenda-remove-tags t)
   :config
   ;; (setq org-startup-indented t)
   (setq org-log-done 'time)
@@ -1262,7 +1263,7 @@
         org-work-notes-path (concat org-work-path "/notes")
         org-work-services-path (concat org-work-path "/services")
         org-work-time-report-dir-name "time_report")
-  (setq org-agenda-files (list org-work-notes-path))
+  (setq org-agenda-files (reverse (directory-files org-work-notes-path t ".org$")))
   (setq org-todo-keywords
         '((sequence "TODO" "SUSPENDED" "|" "DONE" "CANCELLED")))
   (setq org-agenda-custom-commands
@@ -1334,6 +1335,12 @@
 
 (use-package ox-gfm
   :ensure t)
+
+(use-package org-super-agenda
+  :ensure t
+  :hook ((org-mode . org-super-agenda-mode))
+  :custom
+  (org-super-agenda-groups '((:auto-tags t))))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; TELEPHONE MODE LINE
