@@ -356,7 +356,7 @@
                            ;; js-mode binds "M-." which conflicts with xref and eglot, so unbind it.
                            (local-unset-key (kbd "M-."))))
          (typescript-ts-base-mode . (lambda () (setq typescript-ts-mode-indent-offset 2))))
-  :functions (eslint-fix-file jtsx-bind-keys-to-mode-map)
+  :functions (eslint-fix-file jtsx-bind-keys-to-mode-map projectile-project-root)
   :custom
   (jtsx-switch-indent-offset 2)
   (jtsx-indent-statement-block-regarding-standalone-parent t)
