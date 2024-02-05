@@ -66,6 +66,7 @@
 "runprofileserver"
 "runscript"
 "runserver_plus"
+"send_notifications"
 "set_default_site"
 "set_fake_emails"
 "set_fake_passwords"
