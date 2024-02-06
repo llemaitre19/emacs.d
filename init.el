@@ -1343,6 +1343,7 @@
   (org-super-agenda-groups '((:auto-tags t))))
 
 (use-package org-modern
+  :ensure t
   :hook ((org-mode . global-org-modern-mode)))
 
 ;;--------------------------------------------------------------------------------------------------
