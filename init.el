@@ -23,7 +23,6 @@
 (defvar gud-gdb-command-name)
 (defvar buffer-move-behavior)
 (defvar dashboard-items)
-(defvar work-path)
 (defvar eslint-bin "eslint_d") ;; npm install -g eslint_d
 (defvar jest-bin)
 (defvar django-tests-dir-name "tests")
@@ -58,7 +57,6 @@
   ;; is usefull on Windows
   (defvar projectile-generic-command (concat find-program ". -type f -print0"))
   (defvar jest-bin "node_modules/.bin/jest.cmd")
-  (defvar work-path "F:/Travail")
   (defvar postgresql-user "postgres")
   (defvar font-height-medium-screen 100)
   (defvar font-height-large-screen 110)
@@ -74,7 +72,6 @@
   ;; (load "osx_gud.el")
   (setq exec-path (append '("/usr/local/bin") exec-path))
   (defvar jest-bin "node_modules/jest/bin/jest.js")
-  (defvar work-path "~/Travail")
   (defvar postgresql-user "llemaitre")
   (setq mac-option-key-is-meta t)
   (setq mac-right-option-modifier nil)
@@ -91,7 +88,6 @@
 ;;--------------------------------------------------------------------------------------------------
 (when (eq system-type 'gnu/linux)
   (setq exec-path (append '("/usr/share/virtualenvwrapper") exec-path))
-  (defvar work-path "/home/loic/Travail")
   (defvar jest-bin "node_modules/jest/bin/jest.js")
   (defvar postgresql-user "postgres")
   (defvar font-height-medium-screen 100)
@@ -1228,6 +1224,7 @@
 ;; ORG
 ;;--------------------------------------------------------------------------------------------------
 (use-package org
+  :hook ((org-mode . org-customize-time-report))
   :bind (("C-c o w" . open-current-work-notes)
          ("C-c o W" . open-previous-work-notes)
          ("C-c o r" . open-current-time-report)
@@ -1239,8 +1236,6 @@
          ("C-c <right>" . org-metaright)
          ("C-c o e s" . org-slack-export-to-clipboard-as-slack)
          ("C-c o n d" . org-notes-new-day))
-  :preface
-  (declare-function org-insert-time-stamp "org")
   :defines (org-agenda-custom-commands
             org-work-path
             org-work-notes-path
@@ -1251,15 +1246,31 @@
               open-current-work-file
               open-previous-work-file
               get-clients-prompt-with-completion
-              get-client-time-report-path)
+              get-client-time-report-path
+              org-highlight-floating-numbers
+              org-highlight-bold-texts
+              org-highlight-dates
+              org-insert-time-stamp
+              projectile-project-root-by-name)
   :custom
   (org-support-shift-select t)
   (org-agenda-remove-tags t)
   :config
+
+  (defun projectile-project-root-by-name (name)
+  "Return the root path of the NAME project."
+  (let ((index 0))
+    (while (and (length> projectile-known-projects index)
+                (not (equal name (projectile-project-name (nth index projectile-known-projects)))))
+      (setq index (1+ index)))
+    (if (length> projectile-known-projects index)
+        (nth index projectile-known-projects)
+      nil)))
+
   ;; (setq org-startup-indented t)
   (setq org-log-done 'time)
   (setq org-startup-folded nil)
-  (setq org-work-path (concat work-path "/Docs/org-work-notes")
+  (setq org-work-path (projectile-project-root-by-name "org-work-notes")
         org-work-notes-path (concat org-work-path "/notes")
         org-work-services-path (concat org-work-path "/services")
         org-work-time-report-dir-name "time_report")
@@ -1270,6 +1281,9 @@
         '(("c" "Custom agenda view"
            ((agenda "")
             (alltodo "")))))
+
+  (custom-set-faces '(org-table ((t (:foreground "LightBlue1")))))
+
   (defun org-agenda-show-custom (&optional arg)
     (interactive "P")
     (org-agenda arg "c"))
@@ -1331,7 +1345,29 @@
     (interactive)
     (insert "* NOTES ")
     (org-insert-time-stamp (current-time))
-    (newline)))
+    (newline))
+
+  (defun org-highlight-floating-numbers ()
+    "Highlight floating numbers."
+    (hi-lock-face-buffer "[0-9]+\\.[0-9]+" 'org-level-8))
+
+  (defun org-highlight-bold-texts ()
+    "Highlight bold texts."
+    (hi-lock-face-buffer "\\*[a-zA-Z]*\\*" 'org-tag-group))
+
+  (defun org-highlight-dates ()
+    "Highlight dates."
+    (hi-lock-face-buffer "[0-9]+-?[0-9]+/[0-9]+/[0-9]+" 'org-agenda-date))
+
+  (defun org-customize-time-report ()
+    "Customize org time report if the buffer is into a time report folder."
+    (when (string-match (concat (expand-file-name org-work-services-path)
+                                ".*"
+                                org-work-time-report-dir-name)
+                        (pwd))
+      (org-highlight-floating-numbers)
+      (org-highlight-bold-texts)
+      (org-highlight-dates))))
 
 (use-package ox-gfm
   :ensure t)
