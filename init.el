@@ -144,6 +144,7 @@
 ;;--------------------------------------------------------------------------------------------------
 (use-package whitespace
   :bind ("C-c w m" . whitespace-mode)
+  :after projectile
   :init
   (setq whitespace-style '(face tabs lines-tail trailing))
   (add-hook 'prog-mode-hook
