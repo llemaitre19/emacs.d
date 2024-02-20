@@ -91,7 +91,8 @@
   (defvar jest-bin "node_modules/jest/bin/jest.js")
   (defvar postgresql-user "postgres")
   (defvar font-height-medium-screen 100)
-  (defvar font-height-large-screen 130))
+  (defvar font-height-large-screen 130)
+  (set-face-attribute 'default nil :font "Ubuntu Mono"))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; EXEC PATH FROM SHELL
