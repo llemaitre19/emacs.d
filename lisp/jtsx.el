@@ -635,7 +635,8 @@ N is a numeric prefix argument.  If greater than 1, insert N times `>', but
  never insert closing tag."
   (interactive "p")
   (insert-char (char-from-name "GREATER-THAN SIGN") n t)
-  (when (and (= n 1) jtsx-enable-jsx-electric-closing-element (jtsx-jsx-context-p))
+  ;; Check jsx context inside the tag
+  (when (and (= n 1) jtsx-enable-jsx-electric-closing-element (jtsx-jsx-context-at-p (1- (point))))
     (when-let ((node (treesit-node-at (1- (point))))) ; Safer to get node inside the tag
       (when-let ((parent-node (treesit-node-parent node)))
         (when (and (equal (treesit-node-type node) ">")
@@ -742,6 +743,7 @@ ELEMENT-NAME is the name of the new wrapping element."
       (let* ((region-to-wrap (jtsx-region-to-wrap))
              (start-pos (plist-get region-to-wrap :start))
              (end-pos (plist-get region-to-wrap :end))
+             (new-cursor-pos nil)
              (inline-element (jtsx-inline-content-p start-pos end-pos))
              (opening-line (line-number-at-pos start-pos))
              (closing-line (+ (line-number-at-pos end-pos)
@@ -754,11 +756,10 @@ ELEMENT-NAME is the name of the new wrapping element."
           (if (not inline-element) (newline))
           (if inline-element (goto-char start-pos) (jtsx-goto-line opening-line))
           (insert opening-tag)
+          (setq new-cursor-pos (1- (point)))
           (if (not inline-element) (newline)))
         ;; Let the cursor ready to add attributes in the wrapping element
-        (goto-char start-pos)
-        (search-forward ">")
-        (backward-char 1)
+        (goto-char new-cursor-pos)
         ;; Finally indent modified region
         (indent-region (save-excursion (jtsx-goto-line opening-line) (pos-bol))
                        (save-excursion (jtsx-goto-line (+ closing-line (if inline-element 0 1)))
@@ -864,14 +865,9 @@ If ADD-FIRST is not nil, preprend the RULE in the list for priority purpose."
          (new-rules (remove rule original-rules)))
     (setf (jtsx-ts-indent-rules-for-key ts-lang-key) new-rules)))
 
-(defun jtsx-configure-mode-base (mode
-                                 mode-map
-                                 ts-lang-key
-                                 indent-var-name)
-  "Base function for JSX/TSX Major mode configuration.
-MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
- depending on the mode."
-  ;; Patch indentation
+(defun jtsx-customize-indent-rules (ts-lang-key indent-var-name)
+  "Customize treesit indent rules for TS-LANG-KEY language.
+INDENT-VAR-NAME is the name of the indent offset variable."
   (jtsx-ts-add-indent-rule ts-lang-key
                            `((parent-is "switch_body") parent-bol ,jtsx-switch-indent-offset))
   (when jtsx-indent-statement-block-regarding-standalone-parent
@@ -889,7 +885,17 @@ MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
                              `((node-is "statement_block") standalone-parent ,indent-var-name))
     (jtsx-ts-remove-indent-rule ts-lang-key
                                 `((node-is "statement_block") parent-bol ,indent-var-name)))
-  (setq-local treesit-simple-indent-rules jtsx-ts-indent-rules)
+  (setq-local treesit-simple-indent-rules jtsx-ts-indent-rules))
+
+(defun jtsx-configure-mode-base (mode
+                                 mode-map
+                                 ts-lang-key
+                                 indent-var-name)
+  "Base function for JSX/TSX Major mode configuration.
+MODE, MODE-MAP, TS-LANG-KEY, INDENT-VAR-NAME variables allow customization
+ depending on the mode."
+  ;; Customize indentation
+  (jtsx-customize-indent-rules ts-lang-key indent-var-name)
 
   ;; Use maximum level of syntax highlighting if enabled
   (when jtsx-enable-all-syntax-highlighting-features
@@ -939,6 +945,7 @@ typescript/tsx grammar, `function' becomes `function_expression'."
     ;; Old version of the grammar
     'function)))
 
+;; Modified copy from lisp/progmodes/js.el of Emacs sources.
 ;; Hard code javascript font lock settings to back port some fixes into Emacs 29.1 and 29.2.
 ;; Should not be used for later versions.
 (defun jtsx-jsx-mode-font-lock-settings ()
@@ -1066,6 +1073,7 @@ typescript/tsx grammar, `function' becomes `function_expression'."
      :override t
      '((escape_sequence) @font-lock-escape-face))))
 
+;; Copy from lisp/progmodes/typescript-ts-mode.el of Emacs sources.
 (defun jtsx-tsx-mode-font-lock-compatibility-bb1f97b (language)
   "Font lock rules helper, to handle different releases of tree-sitter-tsx.
 Check if a node type is available, then return the right font lock rules.
@@ -1100,6 +1108,7 @@ Argument LANGUAGE is either `typescript' or `tsx'."
         [(nested_identifier (identifier)) (identifier)]
         @typescript-ts-jsx-tag-face)))))
 
+;; Modified copy from lisp/progmodes/typescript-ts-mode.el of Emacs sources.
 ;; Hard code typescript/tsx font lock settings to back port some fixes into Emacs 29.1 and 29.2.
 ;; Should not be used for later versions.
 (defun jtsx-tsx-mode-font-lock-settings (language)
@@ -1347,23 +1356,32 @@ WHEN indicates when the mode starts to be obsolete."
 ;; Keep old jsx-mode for backward compatibility but mark it as obsolete.
 (jtsx-define-obsolete-mode-alias 'jsx-mode 'jtsx-jsx-mode "jtsx 0.2.1")
 
+(defun jtsx-add-support-for-switch-indent-option (ts-lang-key)
+  "Add support for switch/case indentation option for TS-LANG-KEY language."
+  ;; Remove specific indent rule for `case' and `default' (introduced by commit ab12628) which
+  ;; defeats `jtsx-switch-indent-offset' option.
+  (jtsx-ts-remove-indent-rule ts-lang-key  '((or (node-is "case")
+                                                 (node-is "default"))
+                                             parent-bol typescript-ts-mode-indent-offset)))
+
+(defun jtsx-typescript-tsx-configure-mode-common(ts-lang-key)
+  "Common part of jtsx-typescript-mode and jtsx-tsx-mode.
+TS-LANG-KEY is the treesit language key."
+(setq-local jtsx-ts-indent-rules (typescript-ts-mode--indent-rules ts-lang-key))
+      (jtsx-add-support-for-switch-indent-option ts-lang-key)
+      (when (version<= emacs-version "29.2")
+        ;; Fix a font lock bug
+        ;; (see https://debbugs.gnu.org/cgi/bugreport.cgi?bug=69024)
+        (setq-local treesit-font-lock-settings
+                    (jtsx-tsx-mode-font-lock-settings ts-lang-key))))
+
 ;;;###autoload
 (define-derived-mode jtsx-tsx-mode tsx-ts-mode "TSX"
   "Major mode extending `tsx-ts-mode'."
   :group 'jtsx
   (let ((ts-lang-key 'tsx))
     (when (treesit-ready-p ts-lang-key)
-      (setq-local jtsx-ts-indent-rules (typescript-ts-mode--indent-rules ts-lang-key))
-      ;; Remove specific indent rule for `case' and `default' (introduced by commit ab12628) which
-      ;; defeats `jtsx-switch-indent-offset' option.
-      (jtsx-ts-remove-indent-rule ts-lang-key  '((or (node-is "case")
-                                                     (node-is "default"))
-                                                 parent-bol typescript-ts-mode-indent-offset))
-      (when (version<= emacs-version "29.2")
-        ;; Fix a font lock bug
-        ;; (see https://debbugs.gnu.org/cgi/bugreport.cgi?bug=69024)
-        (setq-local treesit-font-lock-settings
-                    (jtsx-tsx-mode-font-lock-settings ts-lang-key)))
+      (jtsx-typescript-tsx-configure-mode-common ts-lang-key)
       (jtsx-configure-mode-base 'jtsx-tsx-mode jtsx-tsx-mode-map ts-lang-key
                                 'typescript-ts-mode-indent-offset))))
 
@@ -1374,14 +1392,29 @@ WHEN indicates when the mode starts to be obsolete."
 (jtsx-prioritize-mode-if-present 'jtsx-tsx-mode)
 
 ;;;###autoload
+(define-derived-mode jtsx-typescript-mode typescript-ts-mode "TS"
+  "Major mode extending `typescript-ts-mode'."
+  :group 'jtsx
+  (let ((ts-lang-key 'typescript))
+    (when (treesit-ready-p ts-lang-key)
+      (jtsx-typescript-tsx-configure-mode-common ts-lang-key)
+      (jtsx-customize-indent-rules ts-lang-key 'typescript-ts-mode-indent-offset)
+      (when jtsx-enable-all-syntax-highlighting-features
+        (setq-local treesit-font-lock-level 4))
+      (treesit-major-mode-setup))))
+
+;; typescript-ts-mode package sets auto-mode-alist when loaded
+(jtsx-prioritize-mode-if-present 'jtsx-typescript-mode)
+
+;;;###autoload
 (defun jtsx-install-treesit-language (ts-lang-key)
   "Wrapper around `treesit-install-language-grammar' with preset sources.
 TS-LANG-KEY is the language to be installed."
   ;; Known bug : calling `treesit-install-language-grammar' multiple times for the same language
   ;; seems buggy.
-  ;; Fixed by commit 1098c114b74 in emacs 30.0.50
+  ;; Fixed by commit 1098c114b74 in emacs 29.2
   ;; (bug https://debbugs.gnu.org/cgi/bugreport.cgi?bug=66673)
-  (interactive (list (intern (completing-read "Language: " '(javascript tsx)))))
+  (interactive (list (intern (completing-read "Language: " '(javascript tsx typescript)))))
   (unless (alist-get ts-lang-key treesit-language-source-alist)
     (let ((source (pcase ts-lang-key
                     ('javascript '("https://github.com/tree-sitter/tree-sitter-javascript"
@@ -1390,6 +1423,9 @@ TS-LANG-KEY is the language to be installed."
                     ('tsx '("https://github.com/tree-sitter/tree-sitter-typescript"
                             "master"
                             "tsx/src"))
+                    ('typescript '("https://github.com/tree-sitter/tree-sitter-typescript"
+                                   "master"
+                                   "typescript/src"))
                     (_ nil))))
       (cl-assert source (format "Not expected language: %s" ts-lang-key))
       (let ((lang-source (cons ts-lang-key source)))

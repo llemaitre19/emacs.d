@@ -93,7 +93,6 @@
   (defvar font-height-medium-screen 100)
   (defvar font-height-large-screen 130))
 
-
 ;;--------------------------------------------------------------------------------------------------
 ;; EXEC PATH FROM SHELL
 ;;--------------------------------------------------------------------------------------------------;;
@@ -346,7 +345,8 @@
 ;;--------------------------------------------------------------------------------------------------
 (use-package jtsx
   :mode (("\\.jsx?\\'" . jtsx-jsx-mode)
-         ("\\.tsx?\\'" . jtsx-tsx-mode))
+         ("\\.tsx\\'" . jtsx-tsx-mode)
+         ("\\.ts\\'" . jtsx-typescript-mode))
   :commands jtsx-install-treesit-language
   :hook ((js-base-mode . (lambda ()
                            (setq js-indent-level 2)
