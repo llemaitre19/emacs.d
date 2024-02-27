@@ -30,6 +30,7 @@
 (defvar db-backup-dir nil)
 (defvar db-schema-name)
 (defvar use-flycheck-eglot nil)
+(defvar term-cmd-function 'async-shell-command)
 
 ;;--------------------------------------------------------------------------------------------------
 ;; PACKAGES NOT REFERENCED IN MELPA
@@ -92,7 +93,8 @@
   (defvar postgresql-user "postgres")
   (defvar font-height-medium-screen 100)
   (defvar font-height-large-screen 130)
-  (set-face-attribute 'default nil :font "Ubuntu Mono"))
+  (set-face-attribute 'default nil :font "Ubuntu Mono")
+  (setq term-cmd-function 'run-in-vterm))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; EXEC PATH FROM SHELL
@@ -1022,7 +1024,8 @@
               django-get-module
               django-get-test-name-at-point
               python-shell-calculate-command
-              django-project-p)
+              django-project-p
+              run-in-vterm)
   :custom
   (projectile-indexing-method 'alien)
   (projectile-enable-caching t)
@@ -1073,7 +1076,7 @@
                   (pop-to-buffer cmd-buffer nil t)
                 (when cmd-buffer (kill-buffer cmd-buffer))
                 (projectile-with-default-dir (projectile-ensure-project (projectile-project-root))
-                  (async-shell-command cmd cmd-buffer-name)))))
+                  (funcall term-cmd-function cmd cmd-buffer-name)))))
         (message "No running command set for %s project" (projectile-project-name)))))
 
   (defun find-other-file-goto-same-line (&optional flex-matching)
@@ -1478,6 +1481,65 @@
   (defun enable-term-line-mode (&rest ignored)
     (term-line-mode))
   (advice-add 'term :after #'enable-term-line-mode))
+
+;;--------------------------------------------------------------------------------------------------
+;; VTERM
+;;--------------------------------------------------------------------------------------------------
+(use-package vterm
+  ;; Install dependencies: apt install cmake libvterm-dev
+  :ensure t
+  :hook ((vterm-mode . vterm-set-virtual-env))
+  :functions (vterm-send-string vterm-send-return vterm-clear dired-get-filename run-in-vterm-kill)
+  :preface
+  (declare-function vterm-send-string "vterm")
+  (declare-function vterm-send-return "vterm")
+  (declare-function vterm-clear "vterm")
+  :init
+  (defun vterm-set-virtual-env ()
+    "Set virtual environment in vterm if needed."
+    (when (and (boundp 'python-shell-virtualenv-root) python-shell-virtualenv-root)
+      (vterm-send-string (concat "workon "
+                                 (file-name-nondirectory
+                                  (directory-file-name
+                                   (file-name-directory python-shell-virtualenv-root)))))
+      (vterm-send-return)
+      (vterm-clear)))
+
+  ;; Inspired from https://www.reddit.com/r/emacs/comments/ft84xy/run_shell_command_in_new_vterm/
+  (defun run-in-vterm-kill (process event)
+    "A process sentinel. Kills PROCESS's buffer if it is live."
+    (let ((b (process-buffer process)))
+      (and (buffer-live-p b)
+           (kill-buffer b))))
+
+  (defun run-in-vterm (command &optional buffer-name)
+    "Execute string COMMAND in a new vterm.
+
+Interactively, prompt for COMMAND with the current buffer's file
+name supplied. When called from Dired, supply the name of the
+file at point.
+
+Like `async-shell-command`, but run in a vterm for full terminal features.
+
+The new vterm buffer is named in the form `*foo bar.baz*`, the
+command and its arguments in earmuffs.
+
+When the command terminates, the shell remains open, but when the
+shell exits, the buffer is killed."
+    (interactive
+     (list
+      (let* ((f (cond (buffer-file-name)
+                      ((eq major-mode 'dired-mode)
+                       (dired-get-filename nil t))))
+             (filename (concat " " (shell-quote-argument (and f (file-relative-name f))))))
+        (read-shell-command "Terminal command: "
+                            (cons filename 0)
+                            (cons 'shell-command-history 1)
+                            (list filename)))))
+    (with-current-buffer (vterm (or buffer-name (concat "*" command "*")))
+      (set-process-sentinel vterm--process #'run-in-vterm-kill)
+      (vterm-send-string command)
+      (vterm-send-return))))
 
 ;;--------------------------------------------------------------------------------------------------
 ;; ERT
