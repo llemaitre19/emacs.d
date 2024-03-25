@@ -382,6 +382,7 @@
 ;; JS/JSX/TS/TSX
 ;;--------------------------------------------------------------------------------------------------
 (use-package jtsx
+  :ensure t
   :mode (("\\.jsx?\\'" . jtsx-jsx-mode)
          ("\\.tsx\\'" . jtsx-tsx-mode)
          ("\\.ts\\'" . jtsx-typescript-mode))
