@@ -1575,7 +1575,9 @@ shell exits, the buffer is killed."
     (with-current-buffer (vterm (or buffer-name (concat "*" command "*")))
       (set-process-sentinel vterm--process #'run-in-vterm-kill)
       (vterm-send-string command)
-      (vterm-send-return))))
+      (vterm-send-return)))
+  :config
+  (define-key vterm-mode-map (kbd "C-s") nil)); isearch
 
 ;;--------------------------------------------------------------------------------------------------
 ;; NEWCOMMENT
