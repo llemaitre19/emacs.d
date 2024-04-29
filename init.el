@@ -220,7 +220,7 @@
   :bind (("C-c e r" . eglot-rename))
   :hook ((js-base-mode . eglot-ensure)
          (typescript-ts-base-mode . eglot-ensure)
-         (python-ts-mode . eglot-ensure)
+         (python-base-mode . eglot-ensure)
          (c-ts-base-mode . eglot-ensure)
          (eglot-managed-mode . start-flycheck-eglot))
   :config
@@ -252,7 +252,7 @@
   :ensure t)
 
 (use-package python
-  :bind (:map python-ts-mode-map (("C-c ! f" . py-autopep8-buffer)
+  :bind (:map python-base-mode-map (("C-c ! f" . py-autopep8-buffer)
                                   ("C-c t a" . django-run-all-tests)
                                   ("C-c t f" . django-run-buffer-tests)
                                   ("C-c t p" . django-run-test-at-point)))
